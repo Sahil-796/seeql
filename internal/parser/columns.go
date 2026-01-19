@@ -1,9 +1,59 @@
 package parser
 
-// import "vitess.io/vitess/go/vt/sqlparser"
+import (
+	"vitess.io/vitess/go/vt/sqlparser"
+)
 
-// // ExtractColumns returns table -> columns used in query
-// func ExtractColumns(stmt sqlparser.Statement) map[string][]string {
-// 	result := make(map[string]map[string]struct{})
+// ExtractColumns returns table -> columns used in query
+func ExtractColumns(stmt sqlparser.Statement) map[string][]string {
+	// Use map[string]struct{} to deduplicate columns per table
+	result := make(map[string]map[string]struct{})
 
-// }
+	// Build alias -> real table name mapping
+	aliases := make(map[string]string)
+
+	sqlparser.Walk(func(node sqlparser.SQLNode) (bool, error) {
+		// Capture table aliases
+		if aliasedTable, ok := node.(*sqlparser.AliasedTableExpr); ok {
+			if tableName, ok := aliasedTable.Expr.(sqlparser.TableName); ok {
+				realName := tableName.Name.String()
+				alias := aliasedTable.As.String()
+
+				if alias != "" {
+					aliases[alias] = realName
+				} else {
+					aliases[realName] = realName
+				}
+			}
+		}
+
+		// column references
+		if col, ok := node.(*sqlparser.ColName); ok {
+			qualifier := col.Qualifier.Name.String() // the u in  u.name (the alias)
+			// qualifier is needed to map with aliases[]
+			colName := col.Name.String() // the name in u.name (the actual column name)
+
+			if realTable, exists := aliases[qualifier]; exists {
+				qualifier = realTable
+			}
+
+			if result[qualifier] == nil {
+				result[qualifier] = make(map[string]struct{})
+			}
+			result[qualifier][colName] = struct{}{}
+		}
+		return true, nil
+	}, stmt)
+
+	// Convert to map[string][]string
+	finalResult := make(map[string][]string)
+	for table, cols := range result {
+		colList := make([]string, 0, len(cols))
+		for col := range cols {
+			colList = append(colList, col)
+		}
+		finalResult[table] = colList
+	}
+
+	return finalResult
+}
