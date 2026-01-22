@@ -6,3 +6,8 @@ type Join struct {
 	RightTable  string
 	RightColumn string
 }
+
+type TableSchema struct {
+	Name    string
+	Columns []string
+}
