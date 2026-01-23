@@ -1,0 +1,38 @@
+➜  seeql (master) go test -v ./internal/schema                                                                                                                          ✭ ✱
+=== RUN   TestBuildSchema
+    builder_test.go:18: Testing SQL:
+
+        SELECT u.id, u.name, u.email, o.amount, o.order_date, p.product_name
+        FROM users u
+        JOIN orders o ON u.id = o.user_id
+        JOIN products p ON o.product_id = p.id
+        WHERE u.status = 'active'
+    builder_test.go:25:
+        === Calling BuildSchema ===
+map[orders:[product_id amount order_date user_id] products:[id product_name] users:[status id name email]]    builder_test.go:27:
+        === BuildSchema completed ===
+--- PASS: TestBuildSchema (0.00s)
+=== RUN   TestBuildSchemaSimple
+    builder_test.go:33: Testing simple SQL:
+        SELECT u.name, u.email FROM users u
+    builder_test.go:40:
+        === Calling BuildSchema (Simple) ===
+map[users:[name email]]    builder_test.go:42:
+        === BuildSchema completed ===
+--- PASS: TestBuildSchemaSimple (0.00s)
+=== RUN   TestBuildSchemaWithParser
+    builder_test.go:52: Testing SQL with parser functions:
+
+        SELECT u.id, u.name, o.amount
+        FROM users u
+        JOIN orders o ON u.id = o.user_id
+    builder_test.go:60:
+        === Parser Output ===
+    builder_test.go:63: Columns: map[orders:[user_id amount] users:[id name]]
+    builder_test.go:65:
+        === Calling BuildSchema ===
+map[orders:[amount user_id] users:[id name]]    builder_test.go:67:
+        === BuildSchema completed ===
+--- PASS: TestBuildSchemaWithParser (0.00s)
+PASS
+ok      github.com/Sahil-796/seeql/internal/schema      (cached)
