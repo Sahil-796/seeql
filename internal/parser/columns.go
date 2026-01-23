@@ -5,27 +5,11 @@ import (
 )
 
 // ExtractColumns returns table -> columns used in query
-func ExtractColumns(stmt sqlparser.Statement) map[string][]string {
+func ExtractColumns(stmt sqlparser.Statement, aliases map[string]string) map[string][]string {
 	// Use map[string]struct{} to deduplicate columns per table
 	result := make(map[string]map[string]struct{})
 
-	// Build alias -> real table name mapping
-	aliases := make(map[string]string)
-
 	sqlparser.Walk(func(node sqlparser.SQLNode) (bool, error) {
-		// Capture table aliases
-		if aliasedTable, ok := node.(*sqlparser.AliasedTableExpr); ok {
-			if tableName, ok := aliasedTable.Expr.(sqlparser.TableName); ok {
-				realName := tableName.Name.String()
-				alias := aliasedTable.As.String()
-
-				if alias != "" {
-					aliases[alias] = realName
-				} else {
-					aliases[realName] = realName
-				}
-			}
-		}
 
 		// column references
 		if col, ok := node.(*sqlparser.ColName); ok {

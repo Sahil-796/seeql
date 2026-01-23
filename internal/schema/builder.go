@@ -8,7 +8,12 @@ import (
 )
 
 func BuildSchema(stmt sqlparser.Statement) {
+	aliases := parser.ExtractTables(stmt)
+	tableToColumns := parser.ExtractColumns(stmt, aliases)
+	joins := parser.ExtractJoins(stmt, aliases)
+	fmt.Println("COLUMNS:")
+	fmt.Printf("%+v\n", tableToColumns)
 
-	tableToColumns := parser.ExtractColumns(stmt)
-	fmt.Print(tableToColumns)
+	fmt.Println("JOINS:")
+	fmt.Printf("%+v\n", joins)
 }

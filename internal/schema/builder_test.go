@@ -59,8 +59,10 @@ JOIN orders o ON u.id = o.user_id
 	// Show what the parser extracts
 	t.Log("\n=== Parser Output ===")
 
-	columns := parser.ExtractColumns(stmt)
+	columns, aliases := parser.ExtractColumns(stmt)
 	t.Logf("Columns: %v", columns)
+
+	t.Logf("aliases: %v", aliases)
 
 	t.Log("\n=== Calling BuildSchema ===")
 	BuildSchema(stmt)
