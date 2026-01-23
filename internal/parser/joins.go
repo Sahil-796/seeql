@@ -1,13 +1,19 @@
 package parser
 
 import (
-	"github.com/Sahil-796/seeql/internal/types"
 	"vitess.io/vitess/go/vt/sqlparser"
 )
 
-func ExtractJoins(stmt sqlparser.Statement, aliases map[string]string) []types.Join {
+type Join struct {
+	LeftTable   string
+	LeftColumn  string
+	RightTable  string
+	RightColumn string
+}
 
-	joins := make([]types.Join, 0)
+func ExtractJoins(stmt sqlparser.Statement, aliases map[string]string) []Join {
+
+	joins := make([]Join, 0)
 	sqlparser.Walk(func(node sqlparser.SQLNode) (bool, error) {
 
 		if cmp, ok := node.(*sqlparser.ComparisonExpr); ok {
@@ -39,7 +45,7 @@ func ExtractJoins(stmt sqlparser.Statement, aliases map[string]string) []types.J
 				return true, nil
 			}
 
-			joins = append(joins, types.Join{
+			joins = append(joins, Join{
 				LeftTable:   leftTable,
 				LeftColumn:  leftCol.Name.String(),
 				RightTable:  rightTable,
