@@ -1,38 +1,1239 @@
-➜  seeql (master) go test -v ./internal/schema                                                                                                                          ✭ ✱
-=== RUN   TestBuildSchema
-    builder_test.go:18: Testing SQL:
-
-        SELECT u.id, u.name, u.email, o.amount, o.order_date, p.product_name
+=== RUN   TestSimpleSelect
+    builder_test.go:79: 
+        ============================================================
+    builder_test.go:79: TEST: Simple SELECT (no alias)
+    builder_test.go:79: ============================================================
+    builder_test.go:79: SQL:
+        SELECT id, name, email FROM users
+    builder_test.go:79: 
+        --- INFERRED SCHEMA ---
+    builder_test.go:79: 
+        Table: 
+    builder_test.go:79:   Columns:
+    builder_test.go:79:     - id [PK]
+    builder_test.go:79:     - name
+    builder_test.go:79:     - email
+    builder_test.go:79: 
+        --- JSON OUTPUT ---
+    builder_test.go:17: Schema:
+          {
+            "tables": [
+              {
+                "name": "",
+                "columns": [
+                  {
+                    "name": "id",
+                    "is_primary": true
+                  },
+                  {
+                    "name": "name"
+                  },
+                  {
+                    "name": "email"
+                  }
+                ]
+              }
+            ]
+          }
+    builder_test.go:79: ============================================================
+--- PASS: TestSimpleSelect (0.00s)
+=== RUN   TestSelectWithAlias
+    builder_test.go:84: 
+        ============================================================
+    builder_test.go:84: TEST: SELECT with table alias
+    builder_test.go:84: ============================================================
+    builder_test.go:84: SQL:
+        SELECT u.id, u.name, u.email FROM users u
+    builder_test.go:84: 
+        --- INFERRED SCHEMA ---
+    builder_test.go:84: 
+        Table: users
+    builder_test.go:84:   Columns:
+    builder_test.go:84:     - id [PK]
+    builder_test.go:84:     - name
+    builder_test.go:84:     - email
+    builder_test.go:84: 
+        --- JSON OUTPUT ---
+    builder_test.go:17: Schema:
+          {
+            "tables": [
+              {
+                "name": "users",
+                "columns": [
+                  {
+                    "name": "id",
+                    "is_primary": true
+                  },
+                  {
+                    "name": "name"
+                  },
+                  {
+                    "name": "email"
+                  }
+                ]
+              }
+            ]
+          }
+    builder_test.go:84: ============================================================
+--- PASS: TestSelectWithAlias (0.00s)
+=== RUN   TestSingleJoin
+    builder_test.go:92: 
+        ============================================================
+    builder_test.go:92: TEST: Single JOIN
+    builder_test.go:92: ============================================================
+    builder_test.go:92: SQL:
+        
+        SELECT u.id, u.name, o.id, o.amount, o.user_id
+        FROM users u
+        JOIN orders o ON u.id = o.user_id
+    builder_test.go:92: 
+        --- INFERRED SCHEMA ---
+    builder_test.go:92: 
+        Table: users
+    builder_test.go:92:   Columns:
+    builder_test.go:92:     - id [PK]
+    builder_test.go:92:     - name
+    builder_test.go:92: 
+        Table: orders
+    builder_test.go:92:   Columns:
+    builder_test.go:92:     - user_id [FK -> users.id]
+    builder_test.go:92:     - id [PK]
+    builder_test.go:92:     - amount
+    builder_test.go:92: 
+          Relationships:
+    builder_test.go:92:     - users.id <-> orders.user_id
+    builder_test.go:92: 
+        --- JSON OUTPUT ---
+    builder_test.go:17: Schema:
+          {
+            "tables": [
+              {
+                "name": "users",
+                "columns": [
+                  {
+                    "name": "id",
+                    "is_primary": true
+                  },
+                  {
+                    "name": "name"
+                  }
+                ]
+              },
+              {
+                "name": "orders",
+                "columns": [
+                  {
+                    "name": "user_id",
+                    "is_foreign": true,
+                    "ref_table": "users",
+                    "ref_column": "id"
+                  },
+                  {
+                    "name": "id",
+                    "is_primary": true
+                  },
+                  {
+                    "name": "amount"
+                  }
+                ]
+              }
+            ],
+            "relationships": [
+              {
+                "table_a": "users",
+                "column_a": "id",
+                "table_b": "orders",
+                "column_b": "user_id"
+              }
+            ]
+          }
+    builder_test.go:92: ============================================================
+--- PASS: TestSingleJoin (0.00s)
+=== RUN   TestMultipleJoins
+    builder_test.go:104: 
+        ============================================================
+    builder_test.go:104: TEST: Multiple JOINs (3 tables)
+    builder_test.go:104: ============================================================
+    builder_test.go:104: SQL:
+        
+        SELECT
+            u.id, u.name, u.email,
+            o.id, o.amount, o.order_date, o.user_id,
+            p.id, p.product_name, p.price
         FROM users u
         JOIN orders o ON u.id = o.user_id
         JOIN products p ON o.product_id = p.id
-        WHERE u.status = 'active'
-    builder_test.go:25:
-        === Calling BuildSchema ===
-map[orders:[product_id amount order_date user_id] products:[id product_name] users:[status id name email]]    builder_test.go:27:
-        === BuildSchema completed ===
---- PASS: TestBuildSchema (0.00s)
-=== RUN   TestBuildSchemaSimple
-    builder_test.go:33: Testing simple SQL:
-        SELECT u.name, u.email FROM users u
-    builder_test.go:40:
-        === Calling BuildSchema (Simple) ===
-map[users:[name email]]    builder_test.go:42:
-        === BuildSchema completed ===
---- PASS: TestBuildSchemaSimple (0.00s)
-=== RUN   TestBuildSchemaWithParser
-    builder_test.go:52: Testing SQL with parser functions:
-
-        SELECT u.id, u.name, o.amount
+    builder_test.go:104: 
+        --- INFERRED SCHEMA ---
+    builder_test.go:104: 
+        Table: users
+    builder_test.go:104:   Columns:
+    builder_test.go:104:     - id [PK]
+    builder_test.go:104:     - name
+    builder_test.go:104:     - email
+    builder_test.go:104: 
+        Table: orders
+    builder_test.go:104:   Columns:
+    builder_test.go:104:     - user_id [FK -> users.id]
+    builder_test.go:104:     - product_id [FK -> products.id]
+    builder_test.go:104:     - id [PK]
+    builder_test.go:104:     - amount
+    builder_test.go:104:     - order_date
+    builder_test.go:104: 
+        Table: products
+    builder_test.go:104:   Columns:
+    builder_test.go:104:     - id [PK]
+    builder_test.go:104:     - product_name
+    builder_test.go:104:     - price
+    builder_test.go:104: 
+          Relationships:
+    builder_test.go:104:     - users.id <-> orders.user_id
+    builder_test.go:104:     - orders.product_id <-> products.id
+    builder_test.go:104: 
+        --- JSON OUTPUT ---
+    builder_test.go:17: Schema:
+          {
+            "tables": [
+              {
+                "name": "users",
+                "columns": [
+                  {
+                    "name": "id",
+                    "is_primary": true
+                  },
+                  {
+                    "name": "name"
+                  },
+                  {
+                    "name": "email"
+                  }
+                ]
+              },
+              {
+                "name": "orders",
+                "columns": [
+                  {
+                    "name": "user_id",
+                    "is_foreign": true,
+                    "ref_table": "users",
+                    "ref_column": "id"
+                  },
+                  {
+                    "name": "product_id",
+                    "is_foreign": true,
+                    "ref_table": "products",
+                    "ref_column": "id"
+                  },
+                  {
+                    "name": "id",
+                    "is_primary": true
+                  },
+                  {
+                    "name": "amount"
+                  },
+                  {
+                    "name": "order_date"
+                  }
+                ]
+              },
+              {
+                "name": "products",
+                "columns": [
+                  {
+                    "name": "id",
+                    "is_primary": true
+                  },
+                  {
+                    "name": "product_name"
+                  },
+                  {
+                    "name": "price"
+                  }
+                ]
+              }
+            ],
+            "relationships": [
+              {
+                "table_a": "users",
+                "column_a": "id",
+                "table_b": "orders",
+                "column_b": "user_id"
+              },
+              {
+                "table_a": "orders",
+                "column_a": "product_id",
+                "table_b": "products",
+                "column_b": "id"
+              }
+            ]
+          }
+    builder_test.go:104: ============================================================
+--- PASS: TestMultipleJoins (0.00s)
+=== RUN   TestLeftJoin
+    builder_test.go:112: 
+        ============================================================
+    builder_test.go:112: TEST: LEFT JOIN
+    builder_test.go:112: ============================================================
+    builder_test.go:112: SQL:
+        
+        SELECT c.id, c.name, o.id, o.total, o.customer_id
+        FROM customers c
+        LEFT JOIN orders o ON c.id = o.customer_id
+    builder_test.go:112: 
+        --- INFERRED SCHEMA ---
+    builder_test.go:112: 
+        Table: customers
+    builder_test.go:112:   Columns:
+    builder_test.go:112:     - id [PK]
+    builder_test.go:112:     - name
+    builder_test.go:112: 
+        Table: orders
+    builder_test.go:112:   Columns:
+    builder_test.go:112:     - customer_id [FK -> customers.id]
+    builder_test.go:112:     - id [PK]
+    builder_test.go:112:     - total
+    builder_test.go:112: 
+          Relationships:
+    builder_test.go:112:     - customers.id <-> orders.customer_id
+    builder_test.go:112: 
+        --- JSON OUTPUT ---
+    builder_test.go:17: Schema:
+          {
+            "tables": [
+              {
+                "name": "customers",
+                "columns": [
+                  {
+                    "name": "id",
+                    "is_primary": true
+                  },
+                  {
+                    "name": "name"
+                  }
+                ]
+              },
+              {
+                "name": "orders",
+                "columns": [
+                  {
+                    "name": "customer_id",
+                    "is_foreign": true,
+                    "ref_table": "customers",
+                    "ref_column": "id"
+                  },
+                  {
+                    "name": "id",
+                    "is_primary": true
+                  },
+                  {
+                    "name": "total"
+                  }
+                ]
+              }
+            ],
+            "relationships": [
+              {
+                "table_a": "customers",
+                "column_a": "id",
+                "table_b": "orders",
+                "column_b": "customer_id"
+              }
+            ]
+          }
+    builder_test.go:112: ============================================================
+--- PASS: TestLeftJoin (0.00s)
+=== RUN   TestSelfJoin
+    builder_test.go:120: 
+        ============================================================
+    builder_test.go:120: TEST: Self JOIN (employees -> manager)
+    builder_test.go:120: ============================================================
+    builder_test.go:120: SQL:
+        
+        SELECT e.id, e.name, e.manager_id, m.id, m.name
+        FROM employees e
+        JOIN employees m ON e.manager_id = m.id
+    builder_test.go:120: 
+        --- INFERRED SCHEMA ---
+    builder_test.go:120: 
+        Table: employees
+    builder_test.go:120:   Columns:
+    builder_test.go:120:     - manager_id [FK (unknown ref)]
+    builder_test.go:120:     - id [PK]
+    builder_test.go:120:     - name
+    builder_test.go:120: 
+        --- JSON OUTPUT ---
+    builder_test.go:17: Schema:
+          {
+            "tables": [
+              {
+                "name": "employees",
+                "columns": [
+                  {
+                    "name": "manager_id",
+                    "is_foreign": true
+                  },
+                  {
+                    "name": "id",
+                    "is_primary": true
+                  },
+                  {
+                    "name": "name"
+                  }
+                ]
+              }
+            ]
+          }
+    builder_test.go:120: ============================================================
+--- PASS: TestSelfJoin (0.00s)
+=== RUN   TestComplexQuery
+    builder_test.go:135: 
+        ============================================================
+    builder_test.go:135: TEST: Complex query (blog schema)
+    builder_test.go:135: ============================================================
+    builder_test.go:135: SQL:
+        
+        SELECT
+            u.id, u.username, u.email,
+            p.id, p.title, p.content, p.user_id,
+            c.id, c.body, c.post_id, c.user_id,
+            l.id, l.post_id, l.user_id
+        FROM users u
+        JOIN posts p ON u.id = p.user_id
+        JOIN comments c ON p.id = c.post_id
+        JOIN likes l ON p.id = l.post_id
+        WHERE u.active = 1
+    builder_test.go:135: 
+        --- INFERRED SCHEMA ---
+    builder_test.go:135: 
+        Table: likes
+    builder_test.go:135:   Columns:
+    builder_test.go:135:     - post_id [FK -> posts.id]
+    builder_test.go:135:     - id [PK]
+    builder_test.go:135:     - user_id [FK -> users.id]
+    builder_test.go:135: 
+        Table: users
+    builder_test.go:135:   Columns:
+    builder_test.go:135:     - id [PK]
+    builder_test.go:135:     - username
+    builder_test.go:135:     - email
+    builder_test.go:135:     - active
+    builder_test.go:135: 
+        Table: posts
+    builder_test.go:135:   Columns:
+    builder_test.go:135:     - content
+    builder_test.go:135:     - user_id [FK -> users.id]
+    builder_test.go:135:     - id [PK]
+    builder_test.go:135:     - title
+    builder_test.go:135: 
+        Table: comments
+    builder_test.go:135:   Columns:
+    builder_test.go:135:     - post_id [FK -> posts.id]
+    builder_test.go:135:     - id [PK]
+    builder_test.go:135:     - body
+    builder_test.go:135:     - user_id [FK -> users.id]
+    builder_test.go:135: 
+          Relationships:
+    builder_test.go:135:     - users.id <-> posts.user_id
+    builder_test.go:135:     - posts.id <-> comments.post_id
+    builder_test.go:135:     - posts.id <-> likes.post_id
+    builder_test.go:135: 
+        --- JSON OUTPUT ---
+    builder_test.go:17: Schema:
+          {
+            "tables": [
+              {
+                "name": "likes",
+                "columns": [
+                  {
+                    "name": "post_id",
+                    "is_foreign": true,
+                    "ref_table": "posts",
+                    "ref_column": "id"
+                  },
+                  {
+                    "name": "id",
+                    "is_primary": true
+                  },
+                  {
+                    "name": "user_id",
+                    "is_foreign": true,
+                    "ref_table": "users",
+                    "ref_column": "id"
+                  }
+                ]
+              },
+              {
+                "name": "users",
+                "columns": [
+                  {
+                    "name": "id",
+                    "is_primary": true
+                  },
+                  {
+                    "name": "username"
+                  },
+                  {
+                    "name": "email"
+                  },
+                  {
+                    "name": "active"
+                  }
+                ]
+              },
+              {
+                "name": "posts",
+                "columns": [
+                  {
+                    "name": "content"
+                  },
+                  {
+                    "name": "user_id",
+                    "is_foreign": true,
+                    "ref_table": "users",
+                    "ref_column": "id"
+                  },
+                  {
+                    "name": "id",
+                    "is_primary": true
+                  },
+                  {
+                    "name": "title"
+                  }
+                ]
+              },
+              {
+                "name": "comments",
+                "columns": [
+                  {
+                    "name": "post_id",
+                    "is_foreign": true,
+                    "ref_table": "posts",
+                    "ref_column": "id"
+                  },
+                  {
+                    "name": "id",
+                    "is_primary": true
+                  },
+                  {
+                    "name": "body"
+                  },
+                  {
+                    "name": "user_id",
+                    "is_foreign": true,
+                    "ref_table": "users",
+                    "ref_column": "id"
+                  }
+                ]
+              }
+            ],
+            "relationships": [
+              {
+                "table_a": "users",
+                "column_a": "id",
+                "table_b": "posts",
+                "column_b": "user_id"
+              },
+              {
+                "table_a": "posts",
+                "column_a": "id",
+                "table_b": "comments",
+                "column_b": "post_id"
+              },
+              {
+                "table_a": "posts",
+                "column_a": "id",
+                "table_b": "likes",
+                "column_b": "post_id"
+              }
+            ]
+          }
+    builder_test.go:135: ============================================================
+--- PASS: TestComplexQuery (0.00s)
+=== RUN   TestEcommerce
+    builder_test.go:151: 
+        ============================================================
+    builder_test.go:151: TEST: E-commerce schema (5 tables)
+    builder_test.go:151: ============================================================
+    builder_test.go:151: SQL:
+        
+        SELECT
+            c.id, c.name, c.email,
+            o.id, o.order_date, o.status, o.customer_id,
+            oi.id, oi.quantity, oi.price, oi.order_id, oi.product_id,
+            p.id, p.name, p.sku, p.category_id,
+            cat.id, cat.name
+        FROM customers c
+        JOIN orders o ON c.id = o.customer_id
+        JOIN order_items oi ON o.id = oi.order_id
+        JOIN products p ON oi.product_id = p.id
+        JOIN categories cat ON p.category_id = cat.id
+    builder_test.go:151: 
+        --- INFERRED SCHEMA ---
+    builder_test.go:151: 
+        Table: categories
+    builder_test.go:151:   Columns:
+    builder_test.go:151:     - id [PK]
+    builder_test.go:151:     - name
+    builder_test.go:151: 
+        Table: customers
+    builder_test.go:151:   Columns:
+    builder_test.go:151:     - id [PK]
+    builder_test.go:151:     - name
+    builder_test.go:151:     - email
+    builder_test.go:151: 
+        Table: orders
+    builder_test.go:151:   Columns:
+    builder_test.go:151:     - id [PK]
+    builder_test.go:151:     - order_date
+    builder_test.go:151:     - status
+    builder_test.go:151:     - customer_id [FK -> customers.id]
+    builder_test.go:151: 
+        Table: order_items
+    builder_test.go:151:   Columns:
+    builder_test.go:151:     - id [PK]
+    builder_test.go:151:     - quantity
+    builder_test.go:151:     - price
+    builder_test.go:151:     - order_id [FK -> orders.id]
+    builder_test.go:151:     - product_id [FK -> products.id]
+    builder_test.go:151: 
+        Table: products
+    builder_test.go:151:   Columns:
+    builder_test.go:151:     - name
+    builder_test.go:151:     - sku
+    builder_test.go:151:     - id [PK]
+    builder_test.go:151:     - category_id [FK (unknown ref)]
+    builder_test.go:151: 
+          Relationships:
+    builder_test.go:151:     - customers.id <-> orders.customer_id
+    builder_test.go:151:     - orders.id <-> order_items.order_id
+    builder_test.go:151:     - order_items.product_id <-> products.id
+    builder_test.go:151:     - products.category_id <-> categories.id
+    builder_test.go:151: 
+        --- JSON OUTPUT ---
+    builder_test.go:17: Schema:
+          {
+            "tables": [
+              {
+                "name": "categories",
+                "columns": [
+                  {
+                    "name": "id",
+                    "is_primary": true
+                  },
+                  {
+                    "name": "name"
+                  }
+                ]
+              },
+              {
+                "name": "customers",
+                "columns": [
+                  {
+                    "name": "id",
+                    "is_primary": true
+                  },
+                  {
+                    "name": "name"
+                  },
+                  {
+                    "name": "email"
+                  }
+                ]
+              },
+              {
+                "name": "orders",
+                "columns": [
+                  {
+                    "name": "id",
+                    "is_primary": true
+                  },
+                  {
+                    "name": "order_date"
+                  },
+                  {
+                    "name": "status"
+                  },
+                  {
+                    "name": "customer_id",
+                    "is_foreign": true,
+                    "ref_table": "customers",
+                    "ref_column": "id"
+                  }
+                ]
+              },
+              {
+                "name": "order_items",
+                "columns": [
+                  {
+                    "name": "id",
+                    "is_primary": true
+                  },
+                  {
+                    "name": "quantity"
+                  },
+                  {
+                    "name": "price"
+                  },
+                  {
+                    "name": "order_id",
+                    "is_foreign": true,
+                    "ref_table": "orders",
+                    "ref_column": "id"
+                  },
+                  {
+                    "name": "product_id",
+                    "is_foreign": true,
+                    "ref_table": "products",
+                    "ref_column": "id"
+                  }
+                ]
+              },
+              {
+                "name": "products",
+                "columns": [
+                  {
+                    "name": "name"
+                  },
+                  {
+                    "name": "sku"
+                  },
+                  {
+                    "name": "id",
+                    "is_primary": true
+                  },
+                  {
+                    "name": "category_id",
+                    "is_foreign": true
+                  }
+                ]
+              }
+            ],
+            "relationships": [
+              {
+                "table_a": "customers",
+                "column_a": "id",
+                "table_b": "orders",
+                "column_b": "customer_id"
+              },
+              {
+                "table_a": "orders",
+                "column_a": "id",
+                "table_b": "order_items",
+                "column_b": "order_id"
+              },
+              {
+                "table_a": "order_items",
+                "column_a": "product_id",
+                "table_b": "products",
+                "column_b": "id"
+              },
+              {
+                "table_a": "products",
+                "column_a": "category_id",
+                "table_b": "categories",
+                "column_b": "id"
+              }
+            ]
+          }
+    builder_test.go:151: ============================================================
+--- PASS: TestEcommerce (0.00s)
+=== RUN   TestWithWhereClause
+    builder_test.go:160: 
+        ============================================================
+    builder_test.go:160: TEST: Query with WHERE clause
+    builder_test.go:160: ============================================================
+    builder_test.go:160: SQL:
+        
+        SELECT u.id, u.name, u.status, o.id, o.amount
         FROM users u
         JOIN orders o ON u.id = o.user_id
-    builder_test.go:60:
-        === Parser Output ===
-    builder_test.go:63: Columns: map[orders:[user_id amount] users:[id name]]
-    builder_test.go:65:
-        === Calling BuildSchema ===
-map[orders:[amount user_id] users:[id name]]    builder_test.go:67:
-        === BuildSchema completed ===
---- PASS: TestBuildSchemaWithParser (0.00s)
+        WHERE u.status = 'active' AND o.amount > 100
+    builder_test.go:160: 
+        --- INFERRED SCHEMA ---
+    builder_test.go:160: 
+        Table: users
+    builder_test.go:160:   Columns:
+    builder_test.go:160:     - name
+    builder_test.go:160:     - status
+    builder_test.go:160:     - id [PK]
+    builder_test.go:160: 
+        Table: orders
+    builder_test.go:160:   Columns:
+    builder_test.go:160:     - user_id [FK -> users.id]
+    builder_test.go:160:     - id [PK]
+    builder_test.go:160:     - amount
+    builder_test.go:160: 
+          Relationships:
+    builder_test.go:160:     - users.id <-> orders.user_id
+    builder_test.go:160: 
+        --- JSON OUTPUT ---
+    builder_test.go:17: Schema:
+          {
+            "tables": [
+              {
+                "name": "users",
+                "columns": [
+                  {
+                    "name": "name"
+                  },
+                  {
+                    "name": "status"
+                  },
+                  {
+                    "name": "id",
+                    "is_primary": true
+                  }
+                ]
+              },
+              {
+                "name": "orders",
+                "columns": [
+                  {
+                    "name": "user_id",
+                    "is_foreign": true,
+                    "ref_table": "users",
+                    "ref_column": "id"
+                  },
+                  {
+                    "name": "id",
+                    "is_primary": true
+                  },
+                  {
+                    "name": "amount"
+                  }
+                ]
+              }
+            ],
+            "relationships": [
+              {
+                "table_a": "users",
+                "column_a": "id",
+                "table_b": "orders",
+                "column_b": "user_id"
+              }
+            ]
+          }
+    builder_test.go:160: ============================================================
+--- PASS: TestWithWhereClause (0.00s)
+=== RUN   TestWithGroupBy
+    builder_test.go:169: 
+        ============================================================
+    builder_test.go:169: TEST: Query with GROUP BY
+    builder_test.go:169: ============================================================
+    builder_test.go:169: SQL:
+        
+        SELECT u.id, u.name, o.user_id, SUM(o.amount) as total
+        FROM users u
+        JOIN orders o ON u.id = o.user_id
+        GROUP BY u.id, u.name, o.user_id
+    builder_test.go:169: 
+        --- INFERRED SCHEMA ---
+    builder_test.go:169: 
+        Table: users
+    builder_test.go:169:   Columns:
+    builder_test.go:169:     - id [PK]
+    builder_test.go:169:     - name
+    builder_test.go:169: 
+        Table: orders
+    builder_test.go:169:   Columns:
+    builder_test.go:169:     - user_id [FK -> users.id]
+    builder_test.go:169:     - amount
+    builder_test.go:169: 
+          Relationships:
+    builder_test.go:169:     - users.id <-> orders.user_id
+    builder_test.go:169: 
+        --- JSON OUTPUT ---
+    builder_test.go:17: Schema:
+          {
+            "tables": [
+              {
+                "name": "users",
+                "columns": [
+                  {
+                    "name": "id",
+                    "is_primary": true
+                  },
+                  {
+                    "name": "name"
+                  }
+                ]
+              },
+              {
+                "name": "orders",
+                "columns": [
+                  {
+                    "name": "user_id",
+                    "is_foreign": true,
+                    "ref_table": "users",
+                    "ref_column": "id"
+                  },
+                  {
+                    "name": "amount"
+                  }
+                ]
+              }
+            ],
+            "relationships": [
+              {
+                "table_a": "users",
+                "column_a": "id",
+                "table_b": "orders",
+                "column_b": "user_id"
+              }
+            ]
+          }
+    builder_test.go:169: ============================================================
+--- PASS: TestWithGroupBy (0.00s)
+=== RUN   TestWithSubquery
+    builder_test.go:177: 
+        ============================================================
+    builder_test.go:177: TEST: Query with subquery
+    builder_test.go:177: ============================================================
+    builder_test.go:177: SQL:
+        
+        SELECT u.id, u.name
+        FROM users u
+        WHERE u.id IN (SELECT o.user_id FROM orders o WHERE o.amount > 1000)
+    builder_test.go:177: 
+        --- INFERRED SCHEMA ---
+    builder_test.go:177: 
+        Table: users
+    builder_test.go:177:   Columns:
+    builder_test.go:177:     - id [PK]
+    builder_test.go:177:     - name
+    builder_test.go:177: 
+        Table: orders
+    builder_test.go:177:   Columns:
+    builder_test.go:177:     - user_id [FK -> users.id]
+    builder_test.go:177:     - amount
+    builder_test.go:177: 
+        --- JSON OUTPUT ---
+    builder_test.go:17: Schema:
+          {
+            "tables": [
+              {
+                "name": "users",
+                "columns": [
+                  {
+                    "name": "id",
+                    "is_primary": true
+                  },
+                  {
+                    "name": "name"
+                  }
+                ]
+              },
+              {
+                "name": "orders",
+                "columns": [
+                  {
+                    "name": "user_id",
+                    "is_foreign": true,
+                    "ref_table": "users",
+                    "ref_column": "id"
+                  },
+                  {
+                    "name": "amount"
+                  }
+                ]
+              }
+            ]
+          }
+    builder_test.go:177: ============================================================
+--- PASS: TestWithSubquery (0.00s)
+=== RUN   TestManyToMany
+    builder_test.go:189: 
+        ============================================================
+    builder_test.go:189: TEST: Many-to-Many (students <-> courses)
+    builder_test.go:189: ============================================================
+    builder_test.go:189: SQL:
+        
+        SELECT
+            s.id, s.name, s.email,
+            e.student_id, e.course_id, e.enrolled_at,
+            c.id, c.title, c.credits
+        FROM students s
+        JOIN enrollments e ON s.id = e.student_id
+        JOIN courses c ON e.course_id = c.id
+    builder_test.go:189: 
+        --- INFERRED SCHEMA ---
+    builder_test.go:189: 
+        Table: students
+    builder_test.go:189:   Columns:
+    builder_test.go:189:     - id [PK]
+    builder_test.go:189:     - name
+    builder_test.go:189:     - email
+    builder_test.go:189: 
+        Table: enrollments
+    builder_test.go:189:   Columns:
+    builder_test.go:189:     - student_id [FK -> students.id]
+    builder_test.go:189:     - course_id [FK -> courses.id]
+    builder_test.go:189:     - enrolled_at
+    builder_test.go:189: 
+        Table: courses
+    builder_test.go:189:   Columns:
+    builder_test.go:189:     - title
+    builder_test.go:189:     - credits
+    builder_test.go:189:     - id [PK]
+    builder_test.go:189: 
+          Relationships:
+    builder_test.go:189:     - students.id <-> enrollments.student_id
+    builder_test.go:189:     - enrollments.course_id <-> courses.id
+    builder_test.go:189: 
+        --- JSON OUTPUT ---
+    builder_test.go:17: Schema:
+          {
+            "tables": [
+              {
+                "name": "students",
+                "columns": [
+                  {
+                    "name": "id",
+                    "is_primary": true
+                  },
+                  {
+                    "name": "name"
+                  },
+                  {
+                    "name": "email"
+                  }
+                ]
+              },
+              {
+                "name": "enrollments",
+                "columns": [
+                  {
+                    "name": "student_id",
+                    "is_foreign": true,
+                    "ref_table": "students",
+                    "ref_column": "id"
+                  },
+                  {
+                    "name": "course_id",
+                    "is_foreign": true,
+                    "ref_table": "courses",
+                    "ref_column": "id"
+                  },
+                  {
+                    "name": "enrolled_at"
+                  }
+                ]
+              },
+              {
+                "name": "courses",
+                "columns": [
+                  {
+                    "name": "title"
+                  },
+                  {
+                    "name": "credits"
+                  },
+                  {
+                    "name": "id",
+                    "is_primary": true
+                  }
+                ]
+              }
+            ],
+            "relationships": [
+              {
+                "table_a": "students",
+                "column_a": "id",
+                "table_b": "enrollments",
+                "column_b": "student_id"
+              },
+              {
+                "table_a": "enrollments",
+                "column_a": "course_id",
+                "table_b": "courses",
+                "column_b": "id"
+              }
+            ]
+          }
+    builder_test.go:189: ============================================================
+--- PASS: TestManyToMany (0.00s)
+=== RUN   TestNoForeignKeys
+    builder_test.go:196: 
+        ============================================================
+    builder_test.go:196: TEST: Simple table (no FKs)
+    builder_test.go:196: ============================================================
+    builder_test.go:196: SQL:
+        
+        SELECT id, first_name, last_name, email, created_at
+        FROM contacts
+    builder_test.go:196: 
+        --- INFERRED SCHEMA ---
+    builder_test.go:196: 
+        Table: 
+    builder_test.go:196:   Columns:
+    builder_test.go:196:     - id [PK]
+    builder_test.go:196:     - first_name
+    builder_test.go:196:     - last_name
+    builder_test.go:196:     - email
+    builder_test.go:196:     - created_at
+    builder_test.go:196: 
+        --- JSON OUTPUT ---
+    builder_test.go:17: Schema:
+          {
+            "tables": [
+              {
+                "name": "",
+                "columns": [
+                  {
+                    "name": "id",
+                    "is_primary": true
+                  },
+                  {
+                    "name": "first_name"
+                  },
+                  {
+                    "name": "last_name"
+                  },
+                  {
+                    "name": "email"
+                  },
+                  {
+                    "name": "created_at"
+                  }
+                ]
+              }
+            ]
+          }
+    builder_test.go:196: ============================================================
+--- PASS: TestNoForeignKeys (0.00s)
+=== RUN   TestUnknownForeignKey
+    builder_test.go:203: 
+        ============================================================
+    builder_test.go:203: TEST: FK columns without matching tables
+    builder_test.go:203: ============================================================
+    builder_test.go:203: SQL:
+        
+        SELECT id, name, department_id, location_id
+        FROM employees
+    builder_test.go:203: 
+        --- INFERRED SCHEMA ---
+    builder_test.go:203: 
+        Table: 
+    builder_test.go:203:   Columns:
+    builder_test.go:203:     - name
+    builder_test.go:203:     - department_id [FK (unknown ref)]
+    builder_test.go:203:     - location_id [FK (unknown ref)]
+    builder_test.go:203:     - id [PK]
+    builder_test.go:203: 
+        --- JSON OUTPUT ---
+    builder_test.go:17: Schema:
+          {
+            "tables": [
+              {
+                "name": "",
+                "columns": [
+                  {
+                    "name": "name"
+                  },
+                  {
+                    "name": "department_id",
+                    "is_foreign": true
+                  },
+                  {
+                    "name": "location_id",
+                    "is_foreign": true
+                  },
+                  {
+                    "name": "id",
+                    "is_primary": true
+                  }
+                ]
+              }
+            ]
+          }
+    builder_test.go:203: ============================================================
+--- PASS: TestUnknownForeignKey (0.00s)
+=== RUN   TestMultipleFKsSameTable
+    builder_test.go:215: 
+        ============================================================
+    builder_test.go:215: TEST: Multiple FKs to same table
+    builder_test.go:215: ============================================================
+    builder_test.go:215: SQL:
+        
+        SELECT
+            t.id, t.title, t.assignee_id, t.reporter_id,
+            a.id, a.name,
+            r.id, r.name
+        FROM tickets t
+        JOIN users a ON t.assignee_id = a.id
+        JOIN users r ON t.reporter_id = r.id
+    builder_test.go:215: 
+        --- INFERRED SCHEMA ---
+    builder_test.go:215: 
+        Table: tickets
+    builder_test.go:215:   Columns:
+    builder_test.go:215:     - assignee_id [FK (unknown ref)]
+    builder_test.go:215:     - reporter_id [FK (unknown ref)]
+    builder_test.go:215:     - id [PK]
+    builder_test.go:215:     - title
+    builder_test.go:215: 
+        Table: users
+    builder_test.go:215:   Columns:
+    builder_test.go:215:     - id [PK]
+    builder_test.go:215:     - name
+    builder_test.go:215: 
+          Relationships:
+    builder_test.go:215:     - tickets.assignee_id <-> users.id
+    builder_test.go:215:     - tickets.reporter_id <-> users.id
+    builder_test.go:215: 
+        --- JSON OUTPUT ---
+    builder_test.go:17: Schema:
+          {
+            "tables": [
+              {
+                "name": "tickets",
+                "columns": [
+                  {
+                    "name": "assignee_id",
+                    "is_foreign": true
+                  },
+                  {
+                    "name": "reporter_id",
+                    "is_foreign": true
+                  },
+                  {
+                    "name": "id",
+                    "is_primary": true
+                  },
+                  {
+                    "name": "title"
+                  }
+                ]
+              },
+              {
+                "name": "users",
+                "columns": [
+                  {
+                    "name": "id",
+                    "is_primary": true
+                  },
+                  {
+                    "name": "name"
+                  }
+                ]
+              }
+            ],
+            "relationships": [
+              {
+                "table_a": "tickets",
+                "column_a": "assignee_id",
+                "table_b": "users",
+                "column_b": "id"
+              },
+              {
+                "table_a": "tickets",
+                "column_a": "reporter_id",
+                "table_b": "users",
+                "column_b": "id"
+              }
+            ]
+          }
+    builder_test.go:215: ============================================================
+--- PASS: TestMultipleFKsSameTable (0.00s)
 PASS
-ok      github.com/Sahil-796/seeql/internal/schema      (cached)
+ok  	github.com/Sahil-796/seeql/internal/schema	(cached)

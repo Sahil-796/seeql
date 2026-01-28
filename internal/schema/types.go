@@ -1,11 +1,11 @@
 package schema
 
 type ColumnSchema struct {
-	Name      string
-	IsPrimary bool
-	IsForeign bool
-	RefTable  string
-	RefColumn string
+	Name      string `json:"name"`
+	IsPrimary bool   `json:"is_primary,omitempty"`
+	IsForeign bool   `json:"is_foreign,omitempty"`
+	RefTable  string `json:"ref_table,omitempty"`
+	RefColumn string `json:"ref_column,omitempty"`
 }
 
 type TableSchema struct {
@@ -21,6 +21,6 @@ type Relationship struct {
 }
 
 type Schema struct {
-	Tables []TableSchema `json:"tables"`
-	Relationships []Relationship `json:"relationships"`
+	Tables        []TableSchema  `json:"tables"`
+	Relationships []Relationship `json:"relationships,omitempty"`
 }
