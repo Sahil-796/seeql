@@ -1,7 +1,7 @@
 package schema
 
 import (
-
+	"strings"
 	"github.com/Sahil-796/seeql/internal/parser"
 	"vitess.io/vitess/go/vt/sqlparser"
 )
@@ -11,23 +11,26 @@ func BuildSchema(stmt sqlparser.Statement) *Schema {
 	tableToColumns := parser.ExtractColumns(stmt, aliases)
 	joins := parser.ExtractJoins(stmt, aliases)
 	
-	type fkRef struct {
-		refTable  string
-		refColumn string
+	tablenames := make(map[string]bool)
+	
+	for _, realname := range aliases {
+		tablenames[realname] = true
 	}
 	
-	fkLookup := make(map[string]fkRef)
+	relationships := make([]Relationship, 0, len(joins))
 	
 	for _, j := range joins {
-		leftKey := j.LeftTable + "." + j.LeftColumn
-		fkLookup[leftKey] = fkRef{
-			refTable:  j.RightTable,
-			refColumn: j.RightColumn,
-		}
+		relationships = append(relationships, Relationship{
+			TableA:  j.LeftTable,
+			ColumnA: j.LeftColumn,
+			TableB:  j.RightTable,
+			ColumnB: j.RightColumn,
+		})
 	}
 	
 	schema := &Schema{
 		Tables: make([]TableSchema, 0, len(tableToColumns)),
+		Relationships: relationships,
 	}
 	
 	for tableName, columns := range tableToColumns {
@@ -41,17 +44,22 @@ func BuildSchema(stmt sqlparser.Statement) *Schema {
 				Name: colName,
 			}
 			
-			key := tableName + "." + colName
-			if ref, ok := fkLookup[key]; ok {
-				col.IsForeign = true
-				col.RefTable = ref.refTable
-				col.RefColumn = ref.refColumn
+			if strings.ToLower(colName) == "id" {
+				col.IsPrimary = true
 			}
 			
-			for _, j := range joins {
-				if j.RightTable == tableName && j.RightColumn == colName {
-					col.IsPrimary = true
-					break
+			if strings.HasSuffix(strings.ToLower(colName), "_id") && colName != "id" {
+				
+				prefix := strings.TrimSuffix(strings.ToLower(colName), "_id")
+				
+				refTable := inferReferencedTable(prefix, tablenames)
+				
+				if refTable != "" {
+					col.IsForeign = true
+					col.RefTable = refTable
+					col.RefColumn = "id"
+				} else {
+					col.IsForeign = true
 				}
 			}
 			
@@ -61,4 +69,21 @@ func BuildSchema(stmt sqlparser.Statement) *Schema {
 	}
 	
 	return schema
+}
+
+
+func inferReferencedTable(prefix string, tableNames map[string]bool) string {
+	// Try exact match
+	if tableNames[prefix] {
+		return prefix
+	}
+	// Try plural form
+	if tableNames[prefix+"s"] {
+		return prefix + "s"
+	}
+	// Try with "es" suffix (e.g., "box" -> "boxes")
+	if tableNames[prefix+"es"] {
+		return prefix + "es"
+	}
+	return ""
 }

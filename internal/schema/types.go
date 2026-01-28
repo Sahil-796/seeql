@@ -13,6 +13,14 @@ type TableSchema struct {
 	Columns []ColumnSchema `json:"columns"`
 }
 
+type Relationship struct {
+	TableA  string `json:"table_a"`
+	ColumnA string `json:"column_a"`
+	TableB  string `json:"table_b"`
+	ColumnB string `json:"column_b"`
+}
+
 type Schema struct {
 	Tables []TableSchema `json:"tables"`
+	Relationships []Relationship `json:"relationships"`
 }
