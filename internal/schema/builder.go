@@ -33,6 +33,8 @@ func BuildSchema(stmt sqlparser.Statement) (*Schema, error) {
 		Relationships: relationships,
 	}
 	
+	processedTables := make(map[string]bool)
+	
 	for tableName, columns := range tableToColumns {
 		tableSchema:= TableSchema {
 			Name: tableName,
@@ -66,6 +68,16 @@ func BuildSchema(stmt sqlparser.Statement) (*Schema, error) {
 			tableSchema.Columns = append(tableSchema.Columns, col)
 		}
 		schema.Tables = append(schema.Tables, tableSchema)
+	}
+	
+	for tableName := range tablenames {
+		if !processedTables[tableName] {
+			schema.Tables = append(schema.Tables, TableSchema{
+				Name: tableName,
+				Columns: []ColumnSchema{},
+			})
+		}
+		
 	}
 	
 	return schema, nil
