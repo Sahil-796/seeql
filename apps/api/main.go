@@ -1,9 +1,12 @@
 package main
 
 import (
-	"encoding/json"
-	"log"
+	"fmt"
 	"net/http"
+
+	"github.com/Sahil-796/seeql/internal/parser"
+	"github.com/Sahil-796/seeql/internal/schema"
+	"github.com/gin-gonic/gin"
 )
 
 type InferRequest struct {
@@ -11,26 +14,43 @@ type InferRequest struct {
 }
 
 type InferResponse struct {
-	Message string `json:"message"`
-	SQL     string `json:"sql"`
+	Schema *schema.Schema `json:"schema,omitempty"`
+	Error string `json:"error,omitempty"`
 }
 
-func inferHandler(w http.ResponseWriter, r *http.Request) {
-	var req InferRequest
-	json.NewDecoder(r.Body).Decode(&req)
-
-	resp := InferResponse{
-		Message: "Seeql API working",
-		SQL:     req.SQL,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+func inferHandler(schema *schema.Schema) {
+	
 }
 
 func main() {
-	http.HandleFunc("/infer", inferHandler)
-
-	log.Println("API running on http://localhost:8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	
+	r := gin.Default()
+	
+	r.POST("/infer", func(c *gin.Context) {
+		var req InferRequest
+		
+		if err := c.ShouldBind(&req); err != nil {
+			fmt.Printf("Error binding request: %v\n", err)
+			c.JSON(http.StatusBadRequest, InferResponse{Error: err.Error()})
+			return
+		}
+		
+		stmt, err := parser.Parse(req.SQL)
+		
+		if err != nil {
+			c.JSON(http.StatusBadRequest, InferResponse{Error: err.Error()})
+			return
+		}
+		
+		inferredSchema, err := schema.BuildSchema(stmt)
+		
+		if err != nil {
+			c.JSON(http.StatusBadRequest, InferResponse{Error: err.Error()})
+			return
+		}
+		
+		c.JSON(http.StatusOK, InferResponse{Schema: inferredSchema})
+	})
+	
+	r.Run(":8080")
 }

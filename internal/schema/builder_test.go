@@ -31,7 +31,11 @@ func runSchemaTest(t *testing.T, name string, sql string) {
 		t.Fatalf("Parse error: %v", err)
 	}
 
-	schema := BuildSchema(stmt)
+	schema, err := BuildSchema(stmt)
+	if err != nil {
+		t.Fatalf("Schema error: %v", err)
+	}
+	prettyPrint(t, "Schema", schema)
 
 	t.Logf("\n--- INFERRED SCHEMA ---")
 

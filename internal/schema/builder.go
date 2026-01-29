@@ -6,7 +6,7 @@ import (
 	"vitess.io/vitess/go/vt/sqlparser"
 )
 
-func BuildSchema(stmt sqlparser.Statement) *Schema {
+func BuildSchema(stmt sqlparser.Statement) (*Schema, error) {
 	aliases := parser.ExtractTables(stmt)
 	tableToColumns := parser.ExtractColumns(stmt, aliases)
 	joins := parser.ExtractJoins(stmt, aliases)
@@ -68,7 +68,7 @@ func BuildSchema(stmt sqlparser.Statement) *Schema {
 		schema.Tables = append(schema.Tables, tableSchema)
 	}
 	
-	return schema
+	return schema, nil
 }
 
 
