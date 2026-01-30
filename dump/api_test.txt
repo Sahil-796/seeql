@@ -1,0 +1,21 @@
+➜  ~  # Test 1: SELECT * FROM users
+curl -X POST http://localhost:8080/infer \
+  -H "Content-Type: application/json" \
+  -d '{"sql":"SELECT * FROM users"}'
+
+# Test 2: Unqualified columns
+curl -X POST http://localhost:8080/infer \
+  -H "Content-Type: application/json" \
+  -d '{"sql":"SELECT id, name FROM users"}'
+
+# Test 3: Qualified columns with alias
+curl -X POST http://localhost:8080/infer \
+  -H "Content-Type: application/json" \
+  -d '{"sql":"SELECT u.id, u.name, u.email FROM users u"}'
+
+# Test 4: JOIN query
+curl -X POST http://localhost:8080/infer \
+  -H "Content-Type: application/json" \
+  -d '{"sql":"SELECT u.id, u.name, o.id, o.total, o.user_id FROM users u JOIN orders o ON u.id = o.user_id"}'
+
+{"schema":{"tables":[{"name":"users","columns":[]}]}}{"schema":{"tables":[{"name":"","columns":[{"name":"id","is_primary":true},{"name":"name"}]},{"name":"users","columns":[]}]}}{"schema":{"tables":[{"name":"users","columns":[{"name":"id","is_primary":true},{"name":"name"},{"name":"email"}]},{"name":"users","columns":[]}]}}{"schema":{"tables":[{"name":"users","columns":[{"name":"id","is_primary":true},{"name":"name"}]},{"name":"orders","columns":[{"name":"id","is_primary":true},{"name":"total"},{"name":"user_id","is_foreign":true,"ref_table":"users","ref_column":"id"}]},{"name":"users","columns":[]},{"name":"orders","columns":[]}],"relationships":[{"table_a":"users","column_a":"id","table_b":"orders","column_b":"user_id"}]}}%
