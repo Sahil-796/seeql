@@ -11,12 +11,15 @@ import (
 type Generator struct {
 	Schema *schema.Schema
 	rng *rand.Rand
+	faker *gofakeit.Faker
 }
 
 func New(s *schema.Schema) *Generator {
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 	return &Generator{
 		Schema: s,
-		rng: rand.New(rand.NewSource(time.Now().UnixNano())),
+		rng: rng,
+		faker: gofakeit.New(rng.Uint64()),
 	}
 }
 
@@ -25,7 +28,7 @@ func (g * Generator) GenerateData (rowsPerTable int) map[string][]map[string]any
 	
 	
 	for _, table := range g.Schema.Tables {
-		rows := make([]map[string]any, 0, rowsPerTable)
+		rows := make([]map[string]any, rowsPerTable)
 		foreignRefs := g.GenerateForeignKeys(table)
 		
 		for i := range rowsPerTable {
@@ -48,7 +51,7 @@ func (g * Generator) GenerateData (rowsPerTable int) map[string][]map[string]any
 
 func (g *Generator) GenerateColumnValue(column schema.ColumnSchema, foreignRefs map[string][]any, rowIndex int) any{
 	
-	faker := gofakeit.New(g.rng.Uint64())
+	faker := g.faker
 	
 	switch column.Type {
 		case "TEXT", "VARCHAR":
