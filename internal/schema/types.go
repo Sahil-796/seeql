@@ -1,5 +1,7 @@
 package schema
 
+import "github.com/Sahil-796/seeql/internal/parser"
+
 type ColumnSchema struct {
 	Name        string      `json:"name"`
 	Type        string      `json:"type"`
@@ -23,14 +25,7 @@ type TableSchema struct {
 	Columns []ColumnSchema `json:"columns"`
 }
 
-type Relationship struct {
-	TableA  string `json:"table_a"`
-	ColumnA string `json:"column_a"`
-	TableB  string `json:"table_b"`
-	ColumnB string `json:"column_b"`
-}
-
 type Schema struct {
-	Tables        []TableSchema  `json:"tables"`
-	Relationships []Relationship `json:"relationships,omitempty"`
+	Tables        []TableSchema `json:"tables"`
+	Relationships []parser.Join `json:"relationships,omitempty"`
 }

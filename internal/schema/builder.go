@@ -1,8 +1,8 @@
 package schema
 
 import (
-	"strings"
 	"github.com/Sahil-796/seeql/internal/parser"
+	"strings"
 	"vitess.io/vitess/go/vt/sqlparser"
 )
 
@@ -10,52 +10,38 @@ func BuildSchema(stmt sqlparser.Statement) (*Schema, error) {
 	aliases := parser.ExtractTables(stmt)
 	tableToColumns := parser.ExtractColumns(stmt, aliases)
 	joins := parser.ExtractJoins(stmt, aliases)
-	
-	tablenames := make(map[string]bool)
-	
-	for _, realname := range aliases {
-		tablenames[realname] = true
+
+	// quick lookup sets 
+	tablenames := make(map[string]struct{}, len(tableToColumns)) 
+	for tableName := range tableToColumns {
+		tablenames[tableName] = struct{}{}
 	}
-	
-	relationships := make([]Relationship, 0, len(joins))
-	
-	for _, j := range joins {
-		relationships = append(relationships, Relationship{
-			TableA:  j.LeftTable,
-			ColumnA: j.LeftColumn,
-			TableB:  j.RightTable,
-			ColumnB: j.RightColumn,
-		})
-	}
-	
+
 	schema := &Schema{
-		Tables: make([]TableSchema, 0, len(tableToColumns)),
-		Relationships: relationships,
+		Tables:        make([]TableSchema, 0, len(tableToColumns)),
+		Relationships: joins,
 	}
-	
-	processedTables := make(map[string]bool)
-	
+
 	for tableName, columns := range tableToColumns {
-		tableSchema:= TableSchema {
-			Name: tableName,
+		tableSchema := TableSchema{
+			Name:    tableName,
 			Columns: make([]ColumnSchema, 0, len(columns)),
 		}
 		
+		// this filters columns and sets, pks & fks
 		for _, colName := range columns {
-			col := ColumnSchema {
+			col := ColumnSchema{
 				Name: colName,
 			}
-			
+
 			if strings.ToLower(colName) == "id" {
 				col.IsPrimary = true
 			}
-			
+
 			if strings.HasSuffix(strings.ToLower(colName), "_id") && colName != "id" {
-				
 				prefix := strings.TrimSuffix(strings.ToLower(colName), "_id")
-				
 				refTable := inferReferencedTable(prefix, tablenames)
-				
+
 				if refTable != "" {
 					col.IsForeign = true
 					col.RefTable = refTable
@@ -64,37 +50,26 @@ func BuildSchema(stmt sqlparser.Statement) (*Schema, error) {
 					col.IsForeign = true
 				}
 			}
-			
+
 			tableSchema.Columns = append(tableSchema.Columns, col)
 		}
 		schema.Tables = append(schema.Tables, tableSchema)
 	}
-	
-	for tableName := range tablenames {
-		if !processedTables[tableName] {
-			schema.Tables = append(schema.Tables, TableSchema{
-				Name: tableName,
-				Columns: []ColumnSchema{},
-			})
-		}
-		
-	}
-	
+
 	return schema, nil
 }
 
-
-func inferReferencedTable(prefix string, tableNames map[string]bool) string {
+func inferReferencedTable(prefix string, tableNames map[string]struct{}) string {
 	// Try exact match
-	if tableNames[prefix] {
+	if _, ok := tableNames[prefix]; ok {
 		return prefix
 	}
 	// Try plural form
-	if tableNames[prefix+"s"] {
+	if _, ok := tableNames[prefix+"s"]; ok {
 		return prefix + "s"
 	}
 	// Try with "es" suffix (e.g., "box" -> "boxes")
-	if tableNames[prefix+"es"] {
+	if _, ok := tableNames[prefix+"es"]; ok {
 		return prefix + "es"
 	}
 	return ""
