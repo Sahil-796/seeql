@@ -1,0 +1,16 @@
+task.md
+*.db
+*.sqlite
+*.log
+.DS_Store
+.env
+.env.local
+.env.*.local
+node_modules/
+dist/
+build/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
