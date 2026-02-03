@@ -1,13 +1,22 @@
 package db
 
-
 import (
 	"database/sql"
-	"github.com/mattn/go-sqlite3"
+	"fmt"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
-func init() {
-	sql.Open("sqlite3", ":memory:")
-	sql.Register("sqlite3", &sqlite3.SQLiteDriver{})
-
+func Init() (*sql.DB, error) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		return nil, fmt.Errorf("failed to open database: %w", err)
+	}
+	
+	// Verify the connection
+	if err := db.Ping(); err != nil {
+		return nil, fmt.Errorf("failed to ping database: %w", err)
+	}
+	
+	return db, nil
 }
