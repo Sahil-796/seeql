@@ -1,4 +1,5 @@
 task.md
+structure.md
 *.db
 *.sqlite
 *.log
@@ -9,7 +10,6 @@ task.md
 node_modules/
 dist/
 build/
-.vscode/
 .idea/
 *.swp
 *.swo
