@@ -7,9 +7,15 @@ import (
 )
 
 type ExecutionMode interface {
-	ExecuteQuery(query string) (*QueryResult, error)
+	Run(query string) (*QueryResult, error)
 	GetSchema() (*schema.Schema, error)
 	Close() error
+}
+
+type QueryContext struct {
+	ParsedStmt any
+	Schema     *schema.Schema
+	Data       map[string][]map[string]any
 }
 
 type QueryResult struct {
@@ -18,7 +24,6 @@ type QueryResult struct {
 	RowCount int              `json:"row_count"`
 	Schema   *schema.Schema   `json:"schema,omitempty"`
 }
-
 
 const (
 	ModeQuick      string = "quick"

@@ -1,58 +1,112 @@
 # Seeql
 
-Architecture for Both Modes:**
+Seeql is a powerful SQL playground and schema visualizer that allows developers to prototype queries, visualize schemas, and generate mock data instantly. It features a unique "Quick Mode" that infers database schemas directly from SELECT queries and populates them with realistic mock data using an in-memory SQLite engine.
 
-```
-Frontend (React/Vue/Svelte)          Backend (Go)
-├─ SQL Editor                         ├─ SQL Parser
-├─ Schema Visualizer                  ├─ Schema Builder
-├─ Data Table Viewer                  ├─ Data Generator
-└─ Query Runner                       ├─ In-Memory SQLite/DB
-                                      └─ Query Executor
-```
+## Features
 
-**Why you NEED backend for the playground:**
+- **Quick Mode**: Instantly visualize data relationships by just writing a `SELECT` query. The system infers the schema, generates mock data, and executes the query.
+- **Full Playground**: Define your schema with `CREATE TABLE` statements and run complex queries against a persistent in-memory session.
+- **Schema Visualization**: Visual representation of tables, columns, and relationships.
+- **Mock Data Generation**: Automatic generation of realistic data using `gofakeit` based on column names and types.
+- **SQL Parsing**: Robust SQL parsing using `vitess` to understand complex queries and joins.
 
-1. **SQL Parsing** - Can't reliably parse complex SQL in browser
-2. **Data Generation** - Go's faker libraries, UUID generation, constraints
-3. **Query Execution** - Need actual SQL engine (SQLite in-memory is perfect)
-4. **State Management** - Tables persist across queries
+## Architecture
 
-**Workflow 1: Quick Mode**
 
-```go
-// Backend endpoint
-POST /api/quick-run
-Body: { "query": "SELECT u.name, o.total FROM users u JOIN orders o..." }
+## Tech Stack
 
-Response: {
-  "inferredSchema": {
-    "tables": ["users", "orders"],
-    "columns": {...},
-    "relationships": {...}
-  },
-  "previewData": [...],  // First 5 rows
-  "sqlToExecute": "SELECT..." // The original query
+### Backend
+- **Language**: Go 1.25+
+- **Framework**: Gin Web Framework
+- **SQL Parser**: Vitess
+- **Database**: SQLite (In-Memory via `go-sqlite3`)
+- **Data Generation**: gofakeit
+
+### Frontend
+- **Framework**: Next.js 16 (React 19)
+- **Styling**: Tailwind CSS v4
+- **Language**: TypeScript
+- **Tooling**: Biome
+
+## Getting Started
+
+### Prerequisites
+- Go 1.25 or higher
+- Node.js or Bun
+
+### Backend Setup
+
+1. Install Go dependencies:
+   ```bash
+   go mod download
+   ```
+
+2. Start the backend server:
+   ```bash
+   go run apps/api/main.go
+   ```
+   The server will start on `http://localhost:8080`.
+
+### Frontend Setup
+
+1. Navigate to the web directory:
+   ```bash
+   cd apps/web
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   # or
+   bun install
+   ```
+
+3. Start the development server:
+   ```bash
+   npm run dev
+   # or
+   bun dev
+   ```
+   The application will be available at `http://localhost:3000`.
+
+## API Endpoints
+
+### `POST /api/quick-run`
+Analyzes a SELECT query, infers schema, generates data, and returns results.
+
+**Request:**
+```json
+{
+  "query": "SELECT u.name, o.total FROM users u JOIN orders o ON u.id = o.user_id"
 }
 ```
 
-**Workflow 2: Full Playground**
-
-```go
-// User sends CREATE TABLE first
-POST /api/schema
-Body: { "createStatements": ["CREATE TABLE users...", "CREATE TABLE orders..."] }
-
-// Then queries work normally
-POST /api/query
-Body: { "query": "SELECT * FROM users" }
-Response: { "data": [...], "schema": {...} }
+**Response:**
+```json
+{
+  "inferredSchema": {
+    "tables": ["users", "orders"],
+    "columns": { ... },
+    "relationships": { ... }
+  },
+  "previewData": [ ... ],
+  "sqlToExecute": "SELECT ..."
+}
 ```
 
-**Tech Stack:**
-- **Backend**: Go + SQLite (in-memory) or DuckDB
-- **Frontend**: Monaco Editor (VS Code's editor) for SQL input
+### `POST /api/schema`
+Defines the database schema using CREATE statements.
 
-The backend runs an actual SQLite database in-memory for each session, so all SQL features work (JOINs, aggregates, subqueries, etc.).
+**Request:**
+```json
+{
+  "createStatements": [
+    "CREATE TABLE users (id INT PRIMARY KEY, name TEXT)",
+    "CREATE TABLE orders (id INT, user_id INT, total DECIMAL)"
+  ]
+}
+```
 
-Want me to sketch the API endpoints?
+## License
+
+MIT
