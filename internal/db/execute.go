@@ -73,6 +73,12 @@ func CreateTable(table *schema.TableSchema, sqlDB *sql.DB) error {
 		if col.IsPrimary {
 			colDef += " PRIMARY KEY"
 		}
+		if !col.Nullable {
+			colDef += " NULL"
+		}
+		if col.IsForeign {
+			colDef += fmt.Sprintf(" REFERENCES %s(%s)", col.RefTable, col.RefColumn)
+		}
 		cols = append(cols, colDef)
 		
 	}
