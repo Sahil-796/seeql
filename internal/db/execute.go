@@ -2,8 +2,10 @@ package db
 
 import (
 	"database/sql"
-	_ "github.com/mattn/go-sqlite3"
 	"fmt"
+
+	"github.com/Sahil-796/seeql/internal/schema"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 type ExecutionResult struct {
@@ -56,3 +58,12 @@ func ExecuteQuery(sqlDB *sql.DB, query string) (*ExecutionResult, error) {
 	}, nil
 }
 
+func CreateTable(tables []schema.TableSchema, sqlDB *sql.DB) error {
+	for _, table := range tables {
+		query := fmt.Sprintf("CREATE TABLE %s (%v)", table.Name, table.Columns)
+		if _, err := sqlDB.Exec(query); err != nil {
+			return fmt.Errorf("failed to create table %s: %w", table.Name, err)
+		}
+	}
+	return nil
+}
