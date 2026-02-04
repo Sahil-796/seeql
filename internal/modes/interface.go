@@ -2,6 +2,7 @@ package modes
 
 import (
 	"database/sql"
+	"fmt"
 
 	"github.com/Sahil-796/seeql/internal/schema"
 )
@@ -35,7 +36,7 @@ func NewMode(mode string, db *sql.DB) (ExecutionMode, error) {
 	case ModeQuick:
 		return NewQuickMode(), nil
 	case ModePlayground:
-		return NewPlaygroundMode(db), nil
+		return nil, fmt.Errorf("playground mode not implemented")
 	default:
 		return NewQuickMode(), nil
 	}
