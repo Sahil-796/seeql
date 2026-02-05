@@ -39,9 +39,10 @@ Seeql is a SQL testing/debugging tool with two modes:
 ### DB Package (`internal/db/`)
 - [x] **sqlite.go**: SQLite initialization
   - `Init()` → Creates in-memory SQLite DB
-- [x] **execute.go**: Query execution and table creation
+- [x] **execute.go**: Query execution, table creation, and data insertion
   - `ExecuteQuery(db, query)` → Execute and return results with columns
-  - `CreateTable(table, db)` → CREATE TABLE with PK, FK, NULL constraints
+  - `CreateTable(db, table)` → CREATE TABLE with PK, FK, NULL constraints
+  - `InsertData(db, tableName, rows)` → Insert generated data into tables
   - **NOTE**: Type defaults to TEXT when column.Type is empty
 - [ ] **session.go**: Empty (for PlaygroundMode)
 
@@ -52,121 +53,43 @@ Seeql is a SQL testing/debugging tool with two modes:
   - `Close()` → error
   - `QueryContext`, `QueryResult` structs
   - `NewMode(mode)` → Factory function
-- [x] **quick.go**: QuickMode implementation
-  - Structure: parsedStmt, schema, data
+- [x] **quick.go**: Complete QuickMode implementation
+  - Structure: parsedStmt, schema, data, sqlDB
   - `NewQuickMode()` → Constructor
-  - `Prepare(query)` → Parse → BuildSchema → GenerateData (✓ Working)
+  - `Prepare(query)` → Parse → BuildSchema → GenerateData
+  - `Run(query)` → Open DB → Create tables → Insert data → Execute query → Return results ✓
   - `GetSchema()` → Returns cached schema
-  - `Close()` → No-op (no resources)
-  - **TODO**: `Run(query)` method (line 27-29: not implemented)
+  - `Close()` → Closes sqlDB connection
 - [ ] **playground.go**: Empty file
 
 ### API Handlers (`apps/api/handlers/`)
 - [ ] **health.go**: `GET /health` → Status OK
 - [x] **schema.go**: `POST /infer` → Parse SQL → Return schema
 - [x] **generate.go**: `POST /generate` → Parse → Schema → Generate data → Return data
-- [x] **quick_run.go**: `POST /quick-run` (handler ready)
+- [x] **quick_run.go**: `POST /quick-run` (fully implemented)
   - Request: `{ "sql": "..." }`
   - Uses `modes.NewMode()` → `mode.Run()` → Returns QueryResult
   - Error handling: 400 for bad request, 500 for internal errors
 
 ### Routes (`apps/api/routes/`)
-- [x] **routes.go**: Setup routes
-  - **MISSING**: `POST /quick-run` endpoint
+- [ ] **routes.go**: Setup routes
+  - `POST /infer`, `POST /generate`, `GET /health`
+  - **MISSING**: `POST /quick-run` endpoint (add: `r.POST("/quick-run", handlers.QuickRun)`)
 
-## Critical Issues to Fix
+### Main Application (`apps/api/`)
+- [x] **main.go**: Gin server on :8080
 
-### 1. Complete QuickMode.Run() Implementation
-**Current State**: Returns "not implemented" error
-**Location**: `internal/modes/quick.go:22-30`
+## Remaining Tasks
 
-**What needs to be done**:
-```go
-func (q *QuickMode) Run(query string) (*QueryResult, error) {
-    ctx, err := q.Prepare(query)
-    if err != nil {
-        return nil, err
-    }
-    
-    // 1. Create in-memory SQLite DB
-    db, err := sqlite.Init()
-    if err != nil {
-        return nil, err
-    }
-    defer db.Close()
-    
-    // 2. Create tables from schema
-    for _, table := range q.schema.Tables {
-        if err := db.CreateTable(&table, db); err != nil {
-            return nil, err
-        }
-    }
-    
-    // 3. Insert generated data (NEED: InsertData function)
-    if err := db.InsertData(q.data, db); err != nil {
-        return nil, err
-    }
-    
-    // 4. Execute original query
-    result, err := db.ExecuteQuery(db, query)
-    if err != nil {
-        return nil, err
-    }
-    
-    // 5. Return QueryResult
-    return &QueryResult{
-        Columns:  result.Columns,
-        Rows:     result.Rows,
-        RowCount: result.RowCount,
-        Schema:   q.schema,
-    }, nil
-}
-```
-
-### 2. Implement InsertData Function
-**Location**: `internal/db/execute.go` (missing function)
-
-**Need to add**:
-```go
-func InsertData(data map[string][]map[string]any, sqlDB *sql.DB) error {
-    for tableName, rows := range data {
-        for _, row := range rows {
-            // Build INSERT statement dynamically
-            columns := make([]string, 0, len(row))
-            placeholders := make([]string, 0, len(row))
-            values := make([]any, 0, len(row))
-            
-            i := 1
-            for col, val := range row {
-                columns = append(columns, col)
-                placeholders = append(placeholders, fmt.Sprintf("$%d", i))
-                values = append(values, val)
-                i++
-            }
-            
-            query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)",
-                tableName,
-                strings.Join(columns, ", "),
-                strings.Join(placeholders, ", "))
-            
-            if _, err := sqlDB.Exec(query, values...); err != nil {
-                return fmt.Errorf("failed to insert into %s: %w", tableName, err)
-            }
-        }
-    }
-    return nil
-}
-```
-
-### 3. Add /quick-run Route
-**Location**: `apps/api/routes/routes.go`
+### 1. Add /quick-run Route
+**Location**: `apps/api/routes/routes.go:12`
 
 **Add**:
 ```go
 r.POST("/quick-run", handlers.QuickRun)
 ```
 
-### 4. Handle Empty Column Types
+### 2. Handle Empty Column Types
 **Issue**: `schema.BuildSchema()` doesn't infer column types from SELECT queries, so ColumnSchema.Type is empty
 
 **Current behavior**: `CreateTable()` defaults to TEXT
@@ -193,10 +116,9 @@ r.POST("/quick-run", handlers.QuickRun)
 
 ## Quick Wins (Do These First)
 
-1. **Add InsertData function** - Required for QuickMode to work
-2. **Complete QuickMode.Run()** - Hook up all the pieces
-3. **Add /quick-run route** - Expose the endpoint
-4. **Test end-to-end** - Verify it works with a simple query
+1. **Add /quick-run route** - One line addition in routes.go
+2. **Test end-to-end** - Verify it works with a simple query
+3. **Fix column type inference** - Default id columns to INTEGER
 
 ## Future Enhancements
 
@@ -230,13 +152,11 @@ r.POST("/quick-run", handlers.QuickRun)
 
 ## Next Steps Priority Order
 
-1. 🔴 **HIGH**: Implement `InsertData()` in `internal/db/execute.go`
-2. 🔴 **HIGH**: Complete `QuickMode.Run()` implementation
-3. 🔴 **HIGH**: Add `POST /quick-run` route in `routes.go`
-4. 🟡 **MEDIUM**: Test end-to-end with sample query
-5. 🟡 **MEDIUM**: Fix column type inference (default id → INTEGER)
-6. 🟢 **LOW**: Add more unit tests
-7. 🟢 **LOW**: Documentation and API specs
+1. 🔴 **HIGH**: Add `POST /quick-run` route in `routes.go`
+2. 🟡 **MEDIUM**: Test end-to-end with sample query
+3. 🟡 **MEDIUM**: Fix column type inference (default id → INTEGER)
+4. 🟢 **LOW**: Add more unit tests
+5. 🟢 **LOW**: Documentation and API specs
 
 ## Sample Test Query
 
@@ -272,3 +192,4 @@ Expected response:
 - Foreign key inference based on `_id` suffix convention
 - Primary key inference based on `id` column name
 - Column type currently defaults to TEXT in SQLite
+- QuickMode now properly manages DB lifecycle (open → use → close)
