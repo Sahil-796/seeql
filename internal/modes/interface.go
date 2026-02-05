@@ -1,7 +1,6 @@
 package modes
 
 import (
-	"database/sql"
 	"fmt"
 
 	"github.com/Sahil-796/seeql/internal/schema"
@@ -31,7 +30,7 @@ const (
 	ModePlayground string = "playground"
 )
 
-func NewMode(mode string, db *sql.DB) (ExecutionMode, error) {
+func NewMode(mode string) (ExecutionMode, error) {
 	switch mode {
 	case ModeQuick:
 		return NewQuickMode(), nil

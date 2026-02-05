@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+
 	"github.com/Sahil-796/seeql/internal/schema"
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -31,61 +32,79 @@ func ExecuteQuery(sqlDB *sql.DB, query string) (*ExecutionResult, error) {
 		return nil, fmt.Errorf("failed to get columns: %w", err)
 	}
 
-	var result []map[string]any
+	var results []map[string]any
 	for rows.Next() {
 		values := make([]any, len(columns))
-		valuePtr := make([]any, len(columns))
-
+		valuePtrs := make([]any, len(columns))
 		for i := range values {
-			valuePtr[i] = &values[i]
+			valuePtrs[i] = &values[i]
 		}
-		
-		if err := rows.Scan(valuePtr...); err != nil {
+
+		if err := rows.Scan(valuePtrs...); err != nil {
 			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}
-		
+
 		row := make(map[string]any)
 		for i, col := range columns {
 			row[col] = values[i]
 		}
-		result = append(result, row)
+		results = append(results, row)
 	}
-	
+
 	return &ExecutionResult{
-		Columns: columns,
-		Rows: result,
-		RowCount: len(result),
+		Columns:  columns,
+		Rows:     results,
+		RowCount: len(results),
 	}, nil
 }
 
-func CreateTable(table *schema.TableSchema, sqlDB *sql.DB) error {
+func CreateTable(sqlDB *sql.DB, table *schema.TableSchema) error {
 	var cols []string
-	
 	for _, col := range table.Columns {
-		colType := col.Type
-		
-		if colType == "" {
-			colType = "TEXT"
+		sqlType := col.Type
+		if sqlType == "" {
+			sqlType = "TEXT"
 		}
-		
-		colDef := fmt.Sprintf("%s %s", col.Name, colType)
-		
+		colDef := fmt.Sprintf("%s %s", col.Name, sqlType)
 		if col.IsPrimary {
 			colDef += " PRIMARY KEY"
 		}
 		if !col.Nullable {
-			colDef += " NULL"
-		}
-		if col.IsForeign {
-			colDef += fmt.Sprintf(" REFERENCES %s(%s)", col.RefTable, col.RefColumn)
+			colDef += " NOT NULL"
 		}
 		cols = append(cols, colDef)
-		
 	}
-	
-	query := fmt.Sprintf("CREATE TABLE %s (%s)", table.Name, strings.Join(cols, ", "))
-	if _, err := sqlDB.Exec(query); err != nil {
-		return fmt.Errorf("failed to create table: %w", err)
+
+	query := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (%s)", table.Name, strings.Join(cols, ", "))
+	_, err := sqlDB.Exec(query)
+	return err
+}
+
+func InsertData(sqlDB *sql.DB, tableName string, rows []map[string]any) error {
+	if len(rows) == 0 {
+		return nil
 	}
+
+	for _, row := range rows {
+		var cols []string
+		var placeholders []string
+		var values []any
+
+		for col, val := range row {
+			cols = append(cols, col)
+			placeholders = append(placeholders, "?")
+			values = append(values, val)
+		}
+
+		query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)",
+			tableName,
+			strings.Join(cols, ", "),
+			strings.Join(placeholders, ", "))
+
+		if _, err := sqlDB.Exec(query, values...); err != nil {
+			return fmt.Errorf("failed to insert into %s: %w", tableName, err)
+		}
+	}
+
 	return nil
 }
