@@ -23,7 +23,7 @@ func BuildSchema(stmt sqlparser.Statement) (*Schema, error) {
 	for tableName, columns := range tableToColumns {
 		foundPK := false
 		for _, colName := range columns {
-			if strings.ToLower(colName) == "id" {
+			if isPrimaryKeyColumn(colName) {
 				pkMap[tableName] = colName
 				foundPK = true
 				break
@@ -54,7 +54,7 @@ func BuildSchema(stmt sqlparser.Statement) (*Schema, error) {
 			}
 
 			// Detect Primary Key
-			if strings.ToLower(colName) == "id" {
+			if isPrimaryKeyColumn(colName) {
 				col.IsPrimary = true
 			}
 
@@ -235,4 +235,32 @@ func inferReferencedTable(prefix string, tableNames map[string]struct{}) string 
 		return prefix + "es"
 	}
 	return ""
+}
+
+// isPrimaryKeyColumn checks if a column name indicates it's a primary key
+// Supports common PK naming conventions
+func isPrimaryKeyColumn(colName string) bool {
+	lower := strings.ToLower(colName)
+
+	// Standard 'id' column
+	if lower == "id" {
+		return true
+	}
+
+	// UUID/GUID patterns
+	if lower == "uuid" || lower == "guid" {
+		return true
+	}
+
+	// Explicit PK patterns
+	if lower == "pk" || lower == "key" || lower == "primary_key" {
+		return true
+	}
+
+	// Common alternatives
+	if lower == "code" || lower == "slug" || strings.HasSuffix(lower, "_code") || strings.HasSuffix(lower, "_slug") {
+		return true
+	}
+
+	return false
 }

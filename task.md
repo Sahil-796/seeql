@@ -30,6 +30,7 @@ Seeql is a SQL testing/debugging tool with two modes:
   - `BuildSchema(stmt)` → Infers PK (id columns), FK (ends with _id), relationships from JOINs
   - `inferReferencedTable()` → Matches prefixes to table names (handles pluralization)
   - **NEW**: `inferColumnType()` → Infers 15+ semantic types from column names (INTEGER, EMAIL, BOOLEAN, TIMESTAMP, etc.)
+  - **NEW**: PK Map approach for O(1) FK resolution and type matching
 
 ### Generator Package (`internal/generator/`)
 - [x] **data.go**: Generate fake data based on schema
@@ -123,6 +124,27 @@ SELECT u.name, o.amount FROM users u JOIN orders o ON u.id = o.user_id  -- ✅ W
 - DATE/TIMESTAMP → TEXT (ISO 8601)
 - EMAIL/URL/UUID/JSON → TEXT
 
+### 3. ✅ FK-PK Type Matching (IMPLEMENTED)
+**Issue**: FK columns had wrong type when PK wasn't named `id` (e.g., `customer_uuid` referencing `uuid` PK)
+
+**Solution**: PK Map approach - pre-compute PK columns, then match FK types during schema building
+
+**Before**:
+```go
+orders.customer_uuid: {"type": "INTEGER"}  // Wrong! Should be UUID
+```
+
+**After**:
+```go
+orders.customer_uuid: {"type": "UUID"}  // ✅ Matches customers.uuid type
+```
+
+**Files**: 
+- `internal/schema/builder.go:21-35` - PK map pre-computation
+- `internal/schema/builder.go:54-69` - FK type matching
+
+**Performance**: O(n) time with O(1) FK lookups via map
+
 ## Testing Checklist
 
 ### Unit Tests
@@ -140,6 +162,7 @@ SELECT u.name, o.amount FROM users u JOIN orders o ON u.id = o.user_id  -- ✅ W
 - [x] Test /quick-run with WHERE clause ✅
 - [x] Test error handling (invalid SQL, missing fields) ✅
 - [x] Test /quick-run with simple SELECT (no JOIN) ✅ **FIXED**
+- [x] Test FK-PK type matching ✅ **FIXED**
 - [ ] Test /quick-run with aggregation (COUNT, SUM)
 - [ ] Test all column type patterns
 
@@ -147,10 +170,14 @@ SELECT u.name, o.amount FROM users u JOIN orders o ON u.id = o.user_id  -- ✅ W
 
 ### 🔴 HIGH Priority
 
-1. **Fix FK Type Mismatch Bug**
-   - **Issue**: FK columns (`user_id`) get INTEGER type, but PK columns may get UUID type if not named `id`
-   - **Fix**: When inferring FK type, check referenced table's PK type and match it
-   - **File**: `internal/schema/builder.go:44-56`
+1. ✅ **Fix PK Detection for Non-'id' Columns** (FIXED)
+   - **Issue**: Columns named `uuid`, `guid`, `code`, etc. were not marked as `is_primary: true`
+   - **Fix**: Added `isPrimaryKeyColumn()` function with 10+ PK patterns
+   - **Files**: 
+     - `internal/schema/builder.go:57` - Use new function
+     - `internal/schema/builder.go:218-242` - Function definition
+   - **Supported PK patterns**: `id`, `uuid`, `guid`, `pk`, `key`, `primary_key`, `code`, `slug`, `*_code`, `*_slug`
+   - **Test**: `SELECT uuid, name, code FROM customers` → all PKs correctly marked ✅
 
 2. **Add Missing Handler Tests**
    - `health.go` test
@@ -237,7 +264,8 @@ curl -X POST http://localhost:8080/quick-run \
 - Data is **regenerated** on each request (not cached)
 - Schema inference works on **column names** with **100+ patterns**
 - Foreign key inference based on `_id` suffix convention
-- Primary key inference based on `id` column name
+- Primary key inference supports multiple patterns: `id`, `uuid`, `guid`, `code`, `slug`, `pk`, `key`, etc.
 - Column types are now **inferred from naming patterns** (not defaulted to TEXT)
+- FK types now **match their referenced PK types** automatically
 - QuickMode properly manages DB lifecycle (open → use → close)
 - All high-priority bugs have been fixed ✅
