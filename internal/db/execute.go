@@ -61,10 +61,7 @@ func ExecuteQuery(sqlDB *sql.DB, query string) (*ExecutionResult, error) {
 func CreateTable(sqlDB *sql.DB, table *schema.TableSchema) error {
 	var cols []string
 	for _, col := range table.Columns {
-		sqlType := col.Type
-		if sqlType == "" {
-			sqlType = "TEXT"
-		}
+		sqlType := mapToSQLiteType(col.Type)
 		colDef := fmt.Sprintf("%s %s", col.Name, sqlType)
 		if col.IsPrimary {
 			colDef += " PRIMARY KEY"
@@ -78,6 +75,26 @@ func CreateTable(sqlDB *sql.DB, table *schema.TableSchema) error {
 	query := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (%s)", table.Name, strings.Join(cols, ", "))
 	_, err := sqlDB.Exec(query)
 	return err
+}
+
+// mapToSQLiteType converts semantic types to SQLite storage types
+func mapToSQLiteType(semanticType string) string {
+	switch semanticType {
+	case "INTEGER":
+		return "INTEGER"
+	case "FLOAT", "REAL":
+		return "REAL"
+	case "BOOLEAN":
+		return "INTEGER" // SQLite has no boolean, uses 0/1
+	case "DATE", "TIMESTAMP":
+		return "TEXT" // ISO 8601 format
+	case "TEXT", "VARCHAR", "EMAIL", "URL", "UUID":
+		return "TEXT"
+	case "JSON":
+		return "TEXT" // SQLite can store JSON as TEXT
+	default:
+		return "TEXT"
+	}
 }
 
 func InsertData(sqlDB *sql.DB, tableName string, rows []map[string]any) error {
