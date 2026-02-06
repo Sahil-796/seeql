@@ -11,10 +11,28 @@ func BuildSchema(stmt sqlparser.Statement) (*Schema, error) {
 	tableToColumns := parser.ExtractColumns(stmt, aliases)
 	joins := parser.ExtractJoins(stmt, aliases)
 
-	// quick lookup sets
 	tablenames := make(map[string]struct{}, len(tableToColumns))
 	for tableName := range tableToColumns {
 		tablenames[tableName] = struct{}{}
+	}
+
+	// STEP 1: Pre-compute PK map
+	// pkMap stores: tableName -> pkColumnName
+	// This allows O(1) lookup when resolving FKs
+	pkMap := make(map[string]string)
+	for tableName, columns := range tableToColumns {
+		foundPK := false
+		for _, colName := range columns {
+			if strings.ToLower(colName) == "id" {
+				pkMap[tableName] = colName
+				foundPK = true
+				break
+			}
+		}
+		// Default to "id" if no explicit PK found
+		if !foundPK {
+			pkMap[tableName] = "id"
+		}
 	}
 
 	schema := &Schema{
@@ -22,23 +40,25 @@ func BuildSchema(stmt sqlparser.Statement) (*Schema, error) {
 		Relationships: joins,
 	}
 
+	// STEP 2: Build schema with immediate FK resolution
 	for tableName, columns := range tableToColumns {
 		tableSchema := TableSchema{
 			Name:    tableName,
 			Columns: make([]ColumnSchema, 0, len(columns)),
 		}
 
-		// this filters columns and sets, pks & fks
 		for _, colName := range columns {
 			col := ColumnSchema{
 				Name: colName,
 				Type: inferColumnType(colName),
 			}
 
+			// Detect Primary Key
 			if strings.ToLower(colName) == "id" {
 				col.IsPrimary = true
 			}
 
+			// Detect Foreign Key and IMMEDIATELY resolve it
 			if strings.HasSuffix(strings.ToLower(colName), "_id") && colName != "id" {
 				prefix := strings.TrimSuffix(strings.ToLower(colName), "_id")
 				refTable := inferReferencedTable(prefix, tablenames)
@@ -46,7 +66,18 @@ func BuildSchema(stmt sqlparser.Statement) (*Schema, error) {
 				if refTable != "" {
 					col.IsForeign = true
 					col.RefTable = refTable
-					col.RefColumn = "id"
+
+					// Use pkMap for O(1) lookup of referenced PK
+					refPkCol := pkMap[refTable]
+					col.RefColumn = refPkCol
+
+					// Match FK type to PK type
+					// If PK is "id" -> INTEGER, otherwise infer from PK column name
+					if refPkCol == "id" {
+						col.Type = "INTEGER"
+					} else {
+						col.Type = inferColumnType(refPkCol)
+					}
 				} else {
 					col.IsForeign = true
 				}
