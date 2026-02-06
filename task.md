@@ -81,15 +81,48 @@ Seeql is a SQL testing/debugging tool with two modes:
 
 ## Remaining Tasks
 
-### 1. Add /quick-run Route
+### 1. ~~Add /quick-run Route~~ ✅ DONE
 **Location**: `apps/api/routes/routes.go:12`
 
-**Add**:
 ```go
 r.POST("/quick-run", handlers.QuickRun)
 ```
 
-### 2. Handle Empty Column Types
+### 2. 🔴 Handle Queries Without JOINs (HIGH PRIORITY)
+**Issue**: Simple SELECT queries without JOINs fail because schema inference relies on JOIN clauses to determine table relationships and primary keys.
+
+**Current behavior**:
+```sql
+-- This FAILS:
+SELECT id, name FROM users
+
+-- This WORKS:
+SELECT u.name, o.amount FROM users u JOIN orders o ON u.id = o.user_id
+```
+
+**Error**: `failed to create table : near "(": syntax error`
+
+**Root cause**: `schema.BuildSchema()` extracts table structure from JOIN ON clauses. Without JOINs, it cannot infer:
+- Which column is the primary key
+- Table structure beyond column names
+
+**Proposed solutions**:
+1. **Infer from column names**: If no JOINs, assume `id` column is PK, create basic table schema
+2. **Support explicit schema hints**: Allow optional schema in request body
+3. **Handle single-table SELECTs**: When only one table with no JOINs, create minimal valid schema
+
+**Files to modify**:
+- `internal/schema/builder.go` - Add fallback logic for no-JOIN queries
+- `internal/parser/columns.go` - May need to extract table name from FROM clause without alias
+
+**Test case** (currently fails):
+```bash
+curl -X POST http://localhost:8080/quick-run \
+  -H "Content-Type: application/json" \
+  -d '{"sql": "SELECT id, name FROM users"}'
+```
+
+### 3. Handle Empty Column Types
 **Issue**: `schema.BuildSchema()` doesn't infer column types from SELECT queries, so ColumnSchema.Type is empty
 
 **Current behavior**: `CreateTable()` defaults to TEXT
@@ -108,11 +141,13 @@ r.POST("/quick-run", handlers.QuickRun)
 - [ ] QuickMode integration tests
 
 ### Integration Tests
-- [ ] Test /quick-run with simple SELECT
-- [ ] Test /quick-run with JOIN
-- [ ] Test /quick-run with WHERE clause
+- [x] Test /quick-run with JOIN ✅
+- [x] Test /quick-run with multiple JOINs ✅
+- [x] Test /quick-run with LEFT/RIGHT JOIN ✅
+- [x] Test /quick-run with WHERE clause ✅
+- [x] Test error handling (invalid SQL, missing fields) ✅
+- [ ] Test /quick-run with simple SELECT (no JOIN) - **FAILS, needs fix**
 - [ ] Test /quick-run with aggregation (COUNT, SUM)
-- [ ] Test error handling (invalid SQL, missing tables)
 
 ## Quick Wins (Do These First)
 
@@ -152,8 +187,8 @@ r.POST("/quick-run", handlers.QuickRun)
 
 ## Next Steps Priority Order
 
-1. 🔴 **HIGH**: Add `POST /quick-run` route in `routes.go`
-2. 🟡 **MEDIUM**: Test end-to-end with sample query
+1. 🔴 **HIGH**: Handle queries without JOINs (simple SELECTs fail)
+2. 🔴 **HIGH**: Fix schema inference for single-table queries
 3. 🟡 **MEDIUM**: Fix column type inference (default id → INTEGER)
 4. 🟢 **LOW**: Add more unit tests
 5. 🟢 **LOW**: Documentation and API specs

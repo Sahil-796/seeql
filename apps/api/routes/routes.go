@@ -8,5 +8,6 @@ import (
 func Setup(r *gin.Engine) {
 	r.POST("/infer", handlers.InferSchema)
 	r.POST("/generate", handlers.GenerateData)
+	r.POST("/quick-run", handlers.QuickRun)
 	r.GET("/health", handlers.Health)
 }
