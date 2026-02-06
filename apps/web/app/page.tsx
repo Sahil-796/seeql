@@ -18,28 +18,44 @@ const views = [
     accentColor: "bg-green-400",
   },
   {
-    id: 3,
-    name: "Organic",
-    description: "Soft, rounded shapes with pastel colors and gentle animations",
-    gradient: "from-emerald-50 to-amber-50",
-    textColor: "text-emerald-800",
-    accentColor: "bg-emerald-500",
+    id: 6,
+    name: "Blueprint",
+    description: "Technical engineering drawings with blue grid lines and precise measurements",
+    gradient: "from-blue-950 to-slate-950",
+    textColor: "text-blue-300",
+    accentColor: "bg-blue-400",
   },
   {
-    id: 4,
-    name: "Luxury",
-    description: "Premium dark theme with gold accents and elegant typography",
-    gradient: "from-zinc-900 to-zinc-950",
-    textColor: "text-amber-300",
+    id: 7,
+    name: "Newspaper",
+    description: "Classic newsprint with serif headlines, columns, and vintage texture",
+    gradient: "from-stone-200 to-amber-100",
+    textColor: "text-stone-900",
+    accentColor: "bg-stone-900",
+  },
+  {
+    id: 8,
+    name: "Bauhaus",
+    description: "Bold primary colors with geometric shapes and modernist typography",
+    gradient: "from-yellow-400 via-red-500 to-blue-600",
+    textColor: "text-white",
+    accentColor: "bg-black",
+  },
+  {
+    id: 9,
+    name: "Retro",
+    description: "Vintage 80s computer with amber phosphor display and DOS aesthetics",
+    gradient: "from-amber-950 to-stone-950",
+    textColor: "text-amber-400",
     accentColor: "bg-amber-500",
   },
   {
-    id: 5,
-    name: "Neon",
-    description: "Cyberpunk-inspired with neon glows, glitch effects, and CRT aesthetics",
-    gradient: "from-slate-900 via-purple-950 to-slate-900",
-    textColor: "text-cyan-400",
-    accentColor: "bg-gradient-to-r from-cyan-400 to-pink-500",
+    id: 10,
+    name: "Zen",
+    description: "Japanese minimalism with careful typography and generous whitespace",
+    gradient: "from-stone-100 to-stone-50",
+    textColor: "text-stone-700",
+    accentColor: "bg-stone-400",
   },
 ];
 
@@ -115,7 +131,7 @@ export default function Home() {
             },
             {
               title: "Instant Visualization",
-              description: "See your data come to life with beautiful visualizations. Five distinct design themes to choose from.",
+              description: "See your data come to life with beautiful visualizations. Seven distinct design themes to choose from.",
               icon: (
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -139,7 +155,7 @@ export default function Home() {
         <div className="text-center mb-12">
           <h2 className="text-3xl font-bold text-slate-900 mb-4">Choose Your Experience</h2>
           <p className="text-slate-500 max-w-lg mx-auto">
-            Five distinct design themes, each with its own personality. Pick the one that matches your vibe.
+            Seven distinct design themes, each with its own personality. Pick the one that matches your vibe.
           </p>
         </div>
 
