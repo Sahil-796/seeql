@@ -262,6 +262,38 @@ func TestQuickRun_ComplexJoinWithAliases(t *testing.T) {
 	t.Log("=== Test PASSED ===\n")
 }
 
+
+// only select query, no joins select username, email from users
+
+func TestQuickRun_SelectQuery(t *testing.T) {
+	t.Log("=== Test Case: Select Query ===")
+	t.Log("Testing request with valid select query - should return 200")
+
+	router := setupRouter()
+
+	payload := map[string]interface{}{
+		"sql": `SELECT username, email FROM users`,
+	}
+	body, _ := json.Marshal(payload)
+	t.Logf("Request payload: %s", string(body))
+
+	req, _ := http.NewRequest("POST", "/quick-run", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	t.Logf("Response status: %d", w.Code)
+	t.Logf("Response body: %s", w.Body.String())
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
+	}
+
+	t.Log("=== Test PASSED ===\n")
+}
+
+
 // ============================================================================
 // ERROR HANDLING TESTS - Requests that should fail gracefully
 // ============================================================================
