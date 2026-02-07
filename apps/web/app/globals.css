@@ -10,6 +10,24 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  
+  /* Custom Colors for View 3 - Organic */
+  --color-cream: #fdfcf9;
+  --color-sage-50: #f6f7f4;
+  --color-sage-100: #e8ebe3;
+  --color-sage-200: #d1d7c8;
+  --color-sage-300: #b3bea4;
+  --color-sage-400: #94a37e;
+  --color-sage-500: #768760;
+  --color-sage-600: #5d6b4d;
+  --color-sage-700: #4a5540;
+  --color-sage-800: #3d4636;
+  --color-sage-900: #343b30;
+  --color-peach-50: #fef6f3;
+  --color-peach-100: #fde8e1;
+  --color-peach-300: #f9c4b0;
+  --color-peach-600: #e07b56;
+  --color-lavender-300: #c4b5fd;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -22,5 +40,35 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(128, 128, 128, 0.5);
+}
+
+/* Focus visible styles */
+*:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+/* Code/SQL editor base styles */
+.font-mono {
+  font-family: var(--font-mono), ui-monospace, monospace;
 }
