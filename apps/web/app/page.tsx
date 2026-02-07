@@ -1,218 +1,279 @@
-import Link from "next/link";
+"use client";
 
-const views = [
-  {
-    id: 1,
-    name: "Editorial",
-    description: "Clean, minimalist design with serif typography and generous whitespace",
-    gradient: "from-stone-100 to-stone-200",
-    textColor: "text-stone-800",
-    accentColor: "bg-stone-800",
-  },
-  {
-    id: 2,
-    name: "Terminal",
-    description: "Brutalist terminal aesthetic with monospace fonts and ASCII art",
-    gradient: "from-zinc-900 to-black",
-    textColor: "text-green-400",
-    accentColor: "bg-green-400",
-  },
-  {
-    id: 6,
-    name: "Blueprint",
-    description: "Technical engineering drawings with blue grid lines and precise measurements",
-    gradient: "from-blue-950 to-slate-950",
-    textColor: "text-blue-300",
-    accentColor: "bg-blue-400",
-  },
-  {
-    id: 7,
-    name: "Newspaper",
-    description: "Classic newsprint with serif headlines, columns, and vintage texture",
-    gradient: "from-stone-200 to-amber-100",
-    textColor: "text-stone-900",
-    accentColor: "bg-stone-900",
-  },
-  {
-    id: 8,
-    name: "Bauhaus",
-    description: "Bold primary colors with geometric shapes and modernist typography",
-    gradient: "from-yellow-400 via-red-500 to-blue-600",
-    textColor: "text-white",
-    accentColor: "bg-black",
-  },
-  {
-    id: 9,
-    name: "Retro",
-    description: "Vintage 80s computer with amber phosphor display and DOS aesthetics",
-    gradient: "from-amber-950 to-stone-950",
-    textColor: "text-amber-400",
-    accentColor: "bg-amber-500",
-  },
-  {
-    id: 10,
-    name: "Zen",
-    description: "Japanese minimalism with careful typography and generous whitespace",
-    gradient: "from-stone-100 to-stone-50",
-    textColor: "text-stone-700",
-    accentColor: "bg-stone-400",
-  },
-];
+import { useState, useEffect } from "react";
+import { useSeeql } from "@/lib/hooks";
+import type { Schema } from "@/lib/types";
 
-export default function Home() {
+const EXAMPLE_QUERY = `SELECT u.id, u.name, o.total
+FROM users u
+JOIN orders o ON u.id = o.user_id`;
+
+function TerminalPrompt({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
-      {/* Hero Section */}
-      <header className="relative overflow-hidden">
-        {/* Background Pattern */}
-        <div 
-          className="absolute inset-0 opacity-[0.02]"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-          }}
-        />
-        
-        <div className="relative max-w-6xl mx-auto px-8 py-24 text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-full text-sm text-slate-600 mb-8">
-            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            SQL Playground & Schema Visualizer
-          </div>
-          
-          <h1 className="text-6xl md:text-7xl font-bold mb-6 tracking-tight">
-            <span className="bg-gradient-to-r from-slate-900 via-slate-700 to-slate-900 bg-clip-text text-transparent">
-              Seeql
-            </span>
-          </h1>
-          
-          <p className="text-xl text-slate-500 max-w-2xl mx-auto mb-12 leading-relaxed">
-            Write a SQL query and watch as we infer the schema, generate mock data, 
-            and visualize everything in real-time. No database required.
-          </p>
+    <div className="flex items-start gap-2">
+      <span className="text-[#39ff14] select-none text-base">{">"}</span>
+      <span className="text-base">{children}</span>
+    </div>
+  );
+}
 
-          <div className="flex items-center justify-center gap-4 flex-wrap">
-            <Link 
-              href="/1"
-              className="px-8 py-4 bg-slate-900 text-white rounded-lg font-medium hover:bg-slate-800 transition-colors shadow-lg shadow-slate-900/20"
-            >
-              Get Started
-            </Link>
-            <a 
-              href="https://github.com"
-              className="px-8 py-4 bg-white text-slate-700 rounded-lg font-medium hover:bg-slate-50 transition-colors border border-slate-200"
-            >
-              View Source
-            </a>
+function AsciiTable({ data, tableName }: { data: Record<string, unknown>[]; tableName: string }) {
+  if (data.length === 0) return null;
+  
+  const columns = Object.keys(data[0]);
+  const colWidths = columns.map(col => {
+    const maxDataWidth = Math.max(...data.map(row => String(row[col] ?? "NULL").length));
+    return Math.max(col.length, maxDataWidth, 4);
+  });
+  
+  const horizontalLine = "+" + colWidths.map(w => "-".repeat(w + 2)).join("+") + "+";
+  
+  const formatRow = (values: string[]) => 
+    "|" + values.map((v, i) => ` ${v.padEnd(colWidths[i])} `).join("|") + "|";
+
+  return (
+    <div className="font-mono text-sm whitespace-pre overflow-x-auto">
+      <div className="text-[#666] mb-1">// TABLE: {tableName} ({data.length} rows)</div>
+      <div className="text-[#39ff14]">{horizontalLine}</div>
+      <div className="text-[#fff]">{formatRow(columns)}</div>
+      <div className="text-[#39ff14]">{horizontalLine}</div>
+      {data.slice(0, 15).map((row, i) => (
+        <div key={i} className="text-[#ccc]">
+          {formatRow(columns.map(col => String(row[col] ?? "NULL").slice(0, colWidths[columns.indexOf(col)])))}
+        </div>
+      ))}
+      <div className="text-[#39ff14]">{horizontalLine}</div>
+      {data.length > 15 && (
+        <div className="text-[#666] mt-1">... {data.length - 15} more rows</div>
+      )}
+    </div>
+  );
+}
+
+function SchemaBlock({ schema }: { schema: Schema }) {
+  return (
+    <div className="font-mono text-sm">
+      {schema.tables.map(table => (
+        <div key={table.name} className="mb-4">
+          <div className="text-[#ff6b6b]">CREATE TABLE {table.name} {"{"}</div>
+          {table.columns.map(col => (
+            <div key={col.name} className="pl-4 text-[#ccc]">
+              <span className="text-[#ffd93d]">{col.name}</span>
+              <span className="text-[#666]"> : </span>
+              <span className="text-[#6bcb77]">{col.type || "TEXT"}</span>
+              {col.is_primary && <span className="text-[#ff6b6b]"> [PK]</span>}
+              {col.is_foreign && (
+                <span className="text-[#4d96ff]"> [FK → {col.ref_table}.{col.ref_column}]</span>
+              )}
+            </div>
+          ))}
+          <div className="text-[#ff6b6b]">{"}"}</div>
+        </div>
+      ))}
+      {schema.relationships && schema.relationships.length > 0 && (
+        <div className="mt-4 pt-4 border-t border-[#333]">
+          <div className="text-[#666] mb-2">// RELATIONSHIPS</div>
+          {schema.relationships.map((rel, i) => (
+            <div key={i} className="text-[#4d96ff]">
+              {rel.LeftTable}.{rel.LeftColumn} {"===>"} {rel.RightTable}.{rel.RightColumn}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function TerminalView() {
+  const { sql, schema, data, isLoading, error, setSql, runQuery } = useSeeql();
+  const [rowCount, setRowCount] = useState(10);
+  const [history, setHistory] = useState<string[]>([]);
+  const [time, setTime] = useState("");
+
+  useEffect(() => {
+    const updateTime = () => {
+      setTime(new Date().toLocaleTimeString("en-US", { hour12: false }));
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleRun = () => {
+    if (sql.trim()) {
+      setHistory(prev => [...prev.slice(-4), sql.trim()]);
+      runQuery(sql, rowCount);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#0d0d0d] text-[#ccc] font-mono">
+      {/* Terminal Header */}
+      <header className="bg-[#1a1a1a] border-b-2 border-[#39ff14] px-6 py-3 flex items-center justify-between sticky top-0 z-50">
+        <div className="flex items-center gap-4">
+          <div className="flex gap-2">
+            <div className="w-3.5 h-3.5 rounded-full bg-[#ff5f56]" />
+            <div className="w-3.5 h-3.5 rounded-full bg-[#ffbd2e]" />
+            <div className="w-3.5 h-3.5 rounded-full bg-[#27c93f]" />
           </div>
+          <span className="text-[#39ff14] text-base font-bold tracking-wider">SEEQL_TERMINAL v1.0</span>
+        </div>
+        <div className="flex items-center gap-6 text-sm">
+          <span className="text-[#39ff14]">{time}</span>
         </div>
       </header>
 
-      {/* Features */}
-      <section className="max-w-6xl mx-auto px-8 py-16">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-24">
-          {[
-            {
-              title: "Schema Inference",
-              description: "Write a SELECT query and we'll automatically infer the table structure, relationships, and column types.",
-              icon: (
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7c0-2-1-3-3-3H7c-2 0-3 1-3 3z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6M9 8h6M9 16h3" />
-                </svg>
-              ),
-            },
-            {
-              title: "Mock Data Generation",
-              description: "Generate realistic fake data that respects relationships and constraints. Powered by intelligent type detection.",
-              icon: (
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                </svg>
-              ),
-            },
-            {
-              title: "Instant Visualization",
-              description: "See your data come to life with beautiful visualizations. Seven distinct design themes to choose from.",
-              icon: (
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-              ),
-            },
-          ].map((feature) => (
-            <div key={feature.title} className="bg-white rounded-2xl p-8 border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-              <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600 mb-6">
-                {feature.icon}
-              </div>
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">{feature.title}</h3>
-              <p className="text-slate-500 leading-relaxed">{feature.description}</p>
+      <div className="flex h-[calc(100vh-56px)]">
+        {/* Main Terminal Area */}
+        <main className="flex-1 flex flex-col overflow-hidden">
+          {/* Output Area */}
+          <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            {/* Welcome Message */}
+            <div className="text-[#666] text-sm border border-[#333] p-4 bg-[#111]">
+              <pre className="text-base">{`
+  ____  _____ _____ ___  _     
+ / ___|| ____| ____/ _ \\| |    
+ \\___ \\|  _| |  _|| | | | |    
+  ___) | |___| |__| |_| | |___ 
+ |____/|_____|_____\\__\\_\\_____|
+                               
+ SQL Playground & Schema Visualizer
+ Type your query below and press ENTER or click [EXECUTE]
+              `}</pre>
             </div>
-          ))}
-        </div>
-      </section>
 
-      {/* View Selection */}
-      <section className="max-w-6xl mx-auto px-8 pb-24">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold text-slate-900 mb-4">Choose Your Experience</h2>
-          <p className="text-slate-500 max-w-lg mx-auto">
-            Seven distinct design themes, each with its own personality. Pick the one that matches your vibe.
-          </p>
-        </div>
+            {/* History */}
+            {history.map((cmd, i) => (
+              <TerminalPrompt key={i}>
+                <span className="text-[#666]">{cmd}</span>
+              </TerminalPrompt>
+            ))}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {views.map((view) => (
-            <Link
-              key={view.id}
-              href={`/${view.id}`}
-              className="group relative overflow-hidden rounded-2xl aspect-[4/3] shadow-lg hover:shadow-xl transition-all hover:-translate-y-1"
-            >
-              {/* Background */}
-              <div className={`absolute inset-0 bg-gradient-to-br ${view.gradient}`} />
-              
-              {/* Content */}
-              <div className="relative h-full p-6 flex flex-col justify-between">
-                <div className="flex items-center justify-between">
-                  <span className={`text-sm font-mono ${view.textColor} opacity-60`}>
-                    /{view.id}
-                  </span>
-                  <div className={`w-3 h-3 rounded-full ${view.accentColor}`} />
+            {/* Error Output */}
+            {error && (
+              <div className="text-[#ff6b6b] bg-[#ff6b6b]/10 border border-[#ff6b6b]/30 p-4 text-sm">
+                <span className="font-bold">ERROR:</span> {error}
+              </div>
+            )}
+
+            {/* Schema Output */}
+            {schema && (
+              <div className="border border-[#333] bg-[#111] p-5">
+                <div className="text-[#39ff14] text-sm mb-3 pb-2 border-b border-[#333]">
+                  ▓▓▓ INFERRED SCHEMA ▓▓▓
                 </div>
-                
-                <div>
-                  <h3 className={`text-2xl font-bold ${view.textColor} mb-2`}>
-                    {view.name}
-                  </h3>
-                  <p className={`text-sm ${view.textColor} opacity-70 line-clamp-2`}>
-                    {view.description}
-                  </p>
+                <SchemaBlock schema={schema} />
+              </div>
+            )}
+
+            {/* Data Output */}
+            {data && Object.keys(data).length > 0 && (
+              <div className="border border-[#333] bg-[#111] p-5">
+                <div className="text-[#39ff14] text-sm mb-3 pb-2 border-b border-[#333]">
+                  ▓▓▓ GENERATED DATA ▓▓▓
+                </div>
+                <div className="space-y-6">
+                  {Object.entries(data).map(([tableName, rows]) => (
+                    <AsciiTable key={tableName} data={rows} tableName={tableName} />
+                  ))}
                 </div>
               </div>
+            )}
 
-              {/* Hover overlay */}
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors" />
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="border-t border-slate-100 bg-white">
-        <div className="max-w-6xl mx-auto px-8 py-12">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center">
-                <span className="text-white font-bold text-sm">S</span>
+            {/* Loading State */}
+            {isLoading && (
+              <div className="text-[#39ff14] animate-pulse text-base">
+                Processing query...
+                <span className="animate-ping inline-block ml-1">_</span>
               </div>
-              <span className="text-slate-600">Seeql</span>
+            )}
+          </div>
+
+          {/* Input Area */}
+          <div className="border-t-2 border-[#333] bg-[#0a0a0a] p-5">
+            <div className="flex items-center gap-2 mb-3 text-sm text-[#666]">
+              <span>ROWS_PER_TABLE:</span>
+              <input
+                type="number"
+                value={rowCount}
+                onChange={(e) => setRowCount(Math.max(1, parseInt(e.target.value) || 1))}
+                className="w-14 bg-transparent border border-[#333] px-2 py-1 text-[#39ff14] text-sm focus:outline-none focus:border-[#39ff14]"
+                min={1}
+                max={100}
+              />
             </div>
-            
-            <div className="flex items-center gap-8 text-sm text-slate-500">
-              <span>SQL Playground & Schema Visualizer</span>
-              <span className="hidden md:inline">Built with Next.js & Go</span>
+            <div className="flex items-start gap-3">
+              <span className="text-[#39ff14] pt-2 text-lg">{">"}</span>
+              <textarea
+                value={sql}
+                onChange={(e) => setSql(e.target.value)}
+                onKeyDown={(e) => {
+                  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                    e.preventDefault();
+                    handleRun();
+                  }
+                }}
+                placeholder={EXAMPLE_QUERY}
+                className="flex-1 bg-transparent resize-none text-[#fff] text-base placeholder:text-[#444] focus:outline-none min-h-[80px]"
+                rows={3}
+              />
+              <button
+                onClick={handleRun}
+                disabled={isLoading || !sql.trim()}
+                className="px-5 py-2.5 bg-[#39ff14] text-[#0d0d0d] text-sm font-bold hover:bg-[#2ee00d] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                [EXECUTE]
+              </button>
+            </div>
+            <div className="text-sm text-[#444] mt-3">
+              Press Ctrl+Enter to execute | Tab to indent
             </div>
           </div>
-        </div>
-      </footer>
+        </main>
+
+        {/* Side Panel - Quick Reference */}
+        <aside className="w-72 border-l-2 border-[#333] bg-[#0a0a0a] p-5 text-sm overflow-y-auto hidden lg:block">
+          <div className="text-[#39ff14] font-bold mb-4 text-base">// QUICK REFERENCE</div>
+          
+          <div className="space-y-5 text-[#666]">
+            <div>
+              <div className="text-[#ffd93d] mb-2">Supported Queries:</div>
+              <div>- SELECT with JOINs</div>
+              <div>- Multiple tables</div>
+              <div>- Column aliases</div>
+            </div>
+
+            <div>
+              <div className="text-[#ffd93d] mb-2">Auto-Detection:</div>
+              <div>- Primary keys (id)</div>
+              <div>- Foreign keys (*_id)</div>
+              <div>- Relationships</div>
+            </div>
+
+            <div>
+              <div className="text-[#ffd93d] mb-2">Example:</div>
+              <pre className="text-[#4d96ff] whitespace-pre-wrap text-sm">
+{`SELECT
+  u.name,
+  p.title
+FROM users u
+JOIN posts p
+ON u.id = p.user_id`}
+              </pre>
+            </div>
+
+            <div className="pt-4 border-t border-[#333]">
+              <div className="text-[#ff6b6b]">STATUS:</div>
+              <div className={schema ? "text-[#27c93f]" : "text-[#666]"}>
+                SCHEMA: {schema ? "LOADED" : "EMPTY"}
+              </div>
+              <div className={data ? "text-[#27c93f]" : "text-[#666]"}>
+                DATA: {data ? `${Object.keys(data).length} TABLES` : "EMPTY"}
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
     </div>
   );
 }
