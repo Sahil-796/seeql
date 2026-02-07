@@ -3,6 +3,8 @@ import type {
   InferResponse,
   GenerateRequest,
   GenerateResponse,
+  ExecuteRequest,
+  ExecuteResponse,
   HealthResponse,
 } from "./types";
 
@@ -72,6 +74,17 @@ export const api = {
       rows_per_table: rowsPerTable,
     };
     return fetchApi<GenerateResponse>("/generate", {
+      method: "POST",
+      body: JSON.stringify(request),
+    });
+  },
+
+  /**
+   * Execute SQL query (full pipeline: parse → schema → generate → execute)
+   */
+  execute: async (sql: string): Promise<ExecuteResponse> => {
+    const request: ExecuteRequest = { sql };
+    return fetchApi<ExecuteResponse>("/execute", {
       method: "POST",
       body: JSON.stringify(request),
     });

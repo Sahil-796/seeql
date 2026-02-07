@@ -11,6 +11,9 @@ export function useSeeql() {
     sql: "",
     schema: null,
     data: null,
+    columns: undefined,
+    rows: undefined,
+    rowCount: undefined,
     isLoading: false,
     error: null,
   });
@@ -97,27 +100,32 @@ export function useSeeql() {
   );
 
   const runQuery = useCallback(
-    async (sql: string, rowsPerTable: number = DEFAULT_ROWS_PER_TABLE) => {
+    async (sql: string, _rowsPerTable: number = DEFAULT_ROWS_PER_TABLE) => {
       setState((prev) => ({ ...prev, sql, isLoading: true, error: null }));
 
       try {
-        // Run both in parallel for better performance
-        const [schemaResponse, dataResponse] = await Promise.all([
-          api.inferSchema(sql),
-          api.generateData(sql, rowsPerTable),
-        ]);
+        // Use execute endpoint - full pipeline in one call
+        const response = await api.execute(sql);
 
-        const schemaError = schemaResponse.error;
-        const dataError = dataResponse.error;
-        const error = schemaError || dataError || null;
+        if (response.error) {
+          setState((prev) => ({
+            ...prev,
+            isLoading: false,
+            error: response.error ?? null,
+          }));
+          return;
+        }
 
         startTransition(() => {
           setState({
             sql,
-            schema: schemaResponse.schema ?? null,
-            data: dataResponse.data ?? null,
+            schema: response.schema ?? null,
+            data: null, // Execute doesn't return generated data
+            columns: response.columns,
+            rows: response.rows,
+            rowCount: response.row_count,
             isLoading: false,
-            error,
+            error: null,
           });
         });
       } catch (err) {
@@ -137,6 +145,9 @@ export function useSeeql() {
       sql: "",
       schema: null,
       data: null,
+      columns: undefined,
+      rows: undefined,
+      rowCount: undefined,
       isLoading: false,
       error: null,
     });

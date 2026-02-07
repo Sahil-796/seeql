@@ -46,6 +46,10 @@ export interface GenerateRequest {
   rows_per_table?: number;
 }
 
+export interface ExecuteRequest {
+  sql: string;
+}
+
 // ============ API Response Types ============
 
 export interface InferResponse {
@@ -55,6 +59,14 @@ export interface InferResponse {
 
 export interface GenerateResponse {
   data?: Record<string, Record<string, unknown>[]>;
+  error?: string;
+}
+
+export interface ExecuteResponse {
+  columns?: string[];
+  rows?: Record<string, unknown>[];
+  row_count?: number;
+  schema?: Schema;
   error?: string;
 }
 
@@ -68,6 +80,9 @@ export interface QueryState {
   sql: string;
   schema: Schema | null;
   data: Record<string, Record<string, unknown>[]> | null;
+  columns?: string[];
+  rows?: Record<string, unknown>[];
+  rowCount?: number;
   isLoading: boolean;
   error: string | null;
 }

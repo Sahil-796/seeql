@@ -85,7 +85,7 @@ function SchemaBlock({ schema }: { schema: Schema }) {
 }
 
 export default function TerminalView() {
-  const { sql, schema, data, isLoading, error, setSql, runQuery } = useSeeql();
+  const { sql, schema, data, columns, rows, rowCount: resultRowCount, isLoading, error, setSql, runQuery } = useSeeql();
   const [rowCount, setRowCount] = useState(10);
   const [history, setHistory] = useState<string[]>([]);
   const [time, setTime] = useState("");
@@ -173,10 +173,25 @@ export default function TerminalView() {
                   ▓▓▓ GENERATED DATA ▓▓▓
                 </div>
                 <div className="space-y-6">
-                  {Object.entries(data).map(([tableName, rows]) => (
-                    <AsciiTable key={tableName} data={rows} tableName={tableName} />
+                  {Object.entries(data).map(([tableName, tableRows]) => (
+                    <AsciiTable key={tableName} data={tableRows} tableName={tableName} />
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* Query Results */}
+            {rows && rows.length > 0 && (
+              <div className="border border-[#333] bg-[#111] p-5">
+                <div className="text-[#39ff14] text-sm mb-3 pb-2 border-b border-[#333]">
+                  ▓▓▓ QUERY RESULTS {resultRowCount ? `(${resultRowCount} rows)` : ''} ▓▓▓
+                </div>
+                {columns && (
+                  <div className="text-[#666] text-xs mb-2">
+                    Columns: {columns.join(', ')}
+                  </div>
+                )}
+                <AsciiTable data={rows} tableName="Results" />
               </div>
             )}
 
