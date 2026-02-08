@@ -61,7 +61,6 @@ export function DataTable({
   return (
     <div className={className}>
       <Table className={tableClassName}>
-        <TableCaption className={captionClassName}>{tableName}</TableCaption>
         <TableHeader>
           <TableRow>
             {columns.map((col) => (
@@ -85,7 +84,6 @@ export function DataTable({
           ))}
         </TableBody>
       </Table>
-
     </div>
   );
 }
@@ -140,7 +138,9 @@ export function MultiTableData({
               }`}
             >
               {name}
-              <span className="ml-1.5 opacity-50">({data[name]?.length || 0})</span>
+              <span className="ml-1.5 opacity-50">
+                ({data[name]?.length || 0})
+              </span>
             </button>
           ))}
         </div>

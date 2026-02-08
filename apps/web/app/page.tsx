@@ -152,13 +152,17 @@ export default function TerminalView() {
 
             {(schema || (rows && rows.length > 0)) && (
               <div className="flex items-center justify-between gap-4 border border-[#333] bg-[#111] px-5 py-3">
-                <div className="text-[#39ff14] text-sm">▓▓▓ RESULTS LAYOUT ▓▓▓</div>
+                <div className="text-[#39ff14] text-sm">
+                  ▓▓▓ RESULTS LAYOUT ▓▓▓
+                </div>
                 <div className="flex gap-2">
                   <button
                     type="button"
                     onClick={() => setIsSplitView(false)}
                     className={`px-3 py-1 text-xs border border-[#333] transition-colors ${
-                      !isSplitView ? "bg-[#39ff14] text-[#0d0d0d]" : "text-[#999] hover:text-[#e5e5e5]"
+                      !isSplitView
+                        ? "bg-[#39ff14] text-[#0d0d0d]"
+                        : "text-[#999] hover:text-[#e5e5e5]"
                     }`}
                   >
                     STACKED
@@ -167,7 +171,9 @@ export default function TerminalView() {
                     type="button"
                     onClick={() => setIsSplitView(true)}
                     className={`px-3 py-1 text-xs border border-[#333] transition-colors ${
-                      isSplitView ? "bg-[#39ff14] text-[#0d0d0d]" : "text-[#999] hover:text-[#e5e5e5]"
+                      isSplitView
+                        ? "bg-[#39ff14] text-[#0d0d0d]"
+                        : "text-[#999] hover:text-[#e5e5e5]"
                     }`}
                   >
                     SIDE BY SIDE
@@ -176,7 +182,9 @@ export default function TerminalView() {
               </div>
             )}
 
-            <div className={`grid gap-4 ${isSplitView ? "lg:grid-cols-2" : "grid-cols-1"}`}>
+            <div
+              className={`grid gap-4 ${isSplitView ? "lg:grid-cols-2" : "grid-cols-1"}`}
+            >
               {/* Schema Output */}
               {schema && (
                 <div className="border border-[#333] bg-[#111] p-5">
@@ -187,34 +195,36 @@ export default function TerminalView() {
                 </div>
               )}
 
-            {/* Data Output */}
-            {data && Object.keys(data).length > 0 && (
-              <div className="border border-[#333] bg-[#111] p-5">
-                <div className="text-[#39ff14] text-sm mb-3 pb-2 border-b border-[#333]">
-                  ▓▓▓ GENERATED DATA ▓▓▓
+              {/* Data Output */}
+              {data && Object.keys(data).length > 0 && (
+                <div className="border border-[#333] bg-[#111] p-5">
+                  <div className="text-[#39ff14] text-sm mb-3 pb-2 border-b border-[#333]">
+                    ▓▓▓ GENERATED DATA ▓▓▓
+                  </div>
+                  <div className="space-y-6">
+                    {Object.entries(data).map(([tableName, tableRows]) => (
+                      <DataTable
+                        key={tableName}
+                        data={tableRows}
+                        tableName={tableName}
+                        maxRows={15}
+                        className="rounded-lg border border-[#2a2a2a] bg-[#0f0f10]"
+                        tableClassName="border-separate border-spacing-0"
+                        captionClassName="text-[#666]"
+                        cellClassName="border border-[#2a2a2a] text-[#cfcfcf]"
+                        getRowKey={(row, index) =>
+                          String(
+                            row.id ??
+                              row.ID ??
+                              row.Id ??
+                              `${tableName}-${index}`,
+                          )
+                        }
+                      />
+                    ))}
+                  </div>
                 </div>
-                <div className="space-y-6">
-                  {Object.entries(data).map(([tableName, tableRows]) => (
-                    <DataTable
-                      key={tableName}
-                      data={tableRows}
-                      tableName={tableName}
-                      maxRows={15}
-                      className="rounded-lg border border-[#2a2a2a] bg-[#0f0f10]"
-                      tableClassName="border-separate border-spacing-0"
-                      captionClassName="text-[#666]"
-                      headerClassName="border border-[#2a2a2a] text-[#e5e5e5] font-semibold"
-                      cellClassName="border border-[#2a2a2a] text-[#cfcfcf]"
-                      getRowKey={(row, index) =>
-                        String(
-                          row.id ?? row.ID ?? row.Id ?? `${tableName}-${index}`,
-                        )
-                      }
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
+              )}
 
               {/* Query Results */}
               {rows && rows.length > 0 && (
@@ -235,7 +245,6 @@ export default function TerminalView() {
                     className="rounded-lg border border-[#2a2a2a] bg-[#0f0f10]"
                     tableClassName="border-separate border-spacing-0"
                     captionClassName="text-[#666]"
-                    headerClassName="border border-[#2a2a2a] text-[#e5e5e5] font-semibold"
                     cellClassName="border border-[#2a2a2a] text-[#cfcfcf]"
                     getRowKey={(row, index) =>
                       String(row.id ?? row.ID ?? row.Id ?? `result-${index}`)
