@@ -306,6 +306,7 @@ export default function PlaygroundPage() {
   const [result, setResult] = useState<QueryResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isRunning, setIsRunning] = useState(false);
+  const [isBundleCopied, setIsBundleCopied] = useState(false);
   const pathname = usePathname();
 
   const sqlBundle = useMemo(() => {
@@ -325,6 +326,16 @@ export default function PlaygroundPage() {
     const firstTable = tables[0]?.name ?? "";
     return firstTable ? `SELECT * FROM ${firstTable};` : "";
   }, [query, tables]);
+
+  const sqlBundleText = useMemo(() => {
+    return [
+      ...sqlBundle.createStatements,
+      ...sqlBundle.insertStatements,
+      derivedQuery,
+    ]
+      .filter(Boolean)
+      .join(";\n\n");
+  }, [sqlBundle, derivedQuery]);
 
   const handleRun = async () => {
     if (!derivedQuery) return;
@@ -886,17 +897,27 @@ export default function PlaygroundPage() {
             </div>
 
             <div className="mt-4">
-              <div className="mb-2 text-xs uppercase tracking-[0.3em] text-[#666]">
-                SQL bundle
+              <div className="mb-2 flex items-center justify-between gap-3 text-xs uppercase tracking-[0.3em] text-[#666]">
+                <span>SQL bundle</span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!sqlBundleText) return;
+                    await navigator.clipboard.writeText(sqlBundleText);
+                    setIsBundleCopied(true);
+                    setTimeout(() => setIsBundleCopied(false), 1200);
+                  }}
+                  className={`border px-3 py-1 text-[10px] transition-colors ${
+                    isBundleCopied
+                      ? "border-[#39ff14] bg-[#39ff14] text-[#0d0d0d]"
+                      : "border-[#333] text-[#999] hover:text-[#e5e5e5]"
+                  }`}
+                >
+                  {isBundleCopied ? "Copied" : "Copy"}
+                </button>
               </div>
               <pre className="max-h-[240px] overflow-auto border border-[#2a2a2a] bg-[#0f0f10] p-4 text-xs text-[#999]">
-                {[
-                  ...sqlBundle.createStatements,
-                  ...sqlBundle.insertStatements,
-                  derivedQuery,
-                ]
-                  .filter(Boolean)
-                  .join(";\n\n")}
+                {sqlBundleText}
               </pre>
             </div>
           </div>
