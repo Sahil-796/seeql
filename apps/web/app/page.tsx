@@ -81,18 +81,8 @@ export default function TerminalView() {
   } = useSeeql();
   const [rowCount, setRowCount] = useState(10);
   const [history, setHistory] = useState<string[]>([]);
-  const [time, setTime] = useState("");
   const [isQuickRefOpen, setIsQuickRefOpen] = useState(false);
   const [isSplitView, setIsSplitView] = useState(true);
-
-  useEffect(() => {
-    const updateTime = () => {
-      setTime(new Date().toLocaleTimeString("en-US", { hour12: false }));
-    };
-    updateTime();
-    const interval = setInterval(updateTime, 1000);
-    return () => clearInterval(interval);
-  }, []);
 
   const handleRun = () => {
     if (sql.trim()) {
@@ -104,19 +94,19 @@ export default function TerminalView() {
   return (
     <div className="min-h-screen bg-[#0d0d0d] text-[#ccc] font-mono">
       {/* Terminal Header */}
-      <header className="bg-[#1a1a1a] border-b-2 border-[#39ff14] px-6 py-3 flex items-center justify-between sticky top-0 z-50">
-        <div className="flex items-center gap-4">
-          <div className="flex gap-2">
-            <div className="w-3.5 h-3.5 rounded-full bg-[#ff5f56]" />
-            <div className="w-3.5 h-3.5 rounded-full bg-[#ffbd2e]" />
-            <div className="w-3.5 h-3.5 rounded-full bg-[#27c93f]" />
+      <header className="bg-[#1a1a1a] border-b-2 border-[#39ff14] px-6 py-4 sticky top-0 z-50">
+        <div className="flex items-center justify-between">
+          <div className="flex items-baseline gap-3">
+            <span className="text-[#e5e5e5] text-lg font-semibold tracking-[0.2em]">
+              SEEQL
+            </span>
+            <span className="text-[#39ff14] text-xs uppercase tracking-[0.3em]">
+              SQL Playground
+            </span>
           </div>
-          <span className="text-[#39ff14] text-base font-bold tracking-wider">
-            SEEQL_TERMINAL v1.0
-          </span>
-        </div>
-        <div className="flex items-center gap-6 text-sm">
-          <span className="text-[#39ff14]">{time}</span>
+          <div className="text-xs text-[#666] uppercase tracking-[0.2em]">
+            Schema Visualizer
+          </div>
         </div>
       </header>
 
