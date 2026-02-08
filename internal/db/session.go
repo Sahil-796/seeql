@@ -73,14 +73,44 @@ func (sm *SessionManager) GetSession(id string) (*Session, error) {
 	return nil, fmt.Errorf("session not found: %s", id)
 }
 
+func (sm *SessionManager) CloseSession(id string) error {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	session, err := sm.GetSession(id)
+	
+	if err != nil {
+		return err
+	}
+	
+	session.DB.Close()
+	// close session also cleans up the db path
+	os.Remove(sm.getDBPath(id))
+	
+	delete(sm.sessions, id)
+	return nil
+}
 
+func (sm *SessionManager) CleanupOldSessions(maxAge time.Duration) int {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	
+	var count int
+	for id, session := range sm.sessions {
+		age := session.LastUsed.Sub(session.CreatedAt)
+		// crazy other option -> session.CreatedAt.Add(-session.LastUsed)
+		if age > maxAge {
+			sm.CloseSession(id)
+			count ++
+		}
+	}
+	return count
+}
 
-// ensureDataDir ensures the data directory exists
 func (sm *SessionManager) ensureDataDir() error {
 	return os.MkdirAll(sm.dataDir, 0755)
 }
 
-// getDBPath returns the file path for a session's database
+// file path
 func (sm *SessionManager) getDBPath(sessionID string) string {
 	return filepath.Join(sm.dataDir, sessionID+".db")
 }
