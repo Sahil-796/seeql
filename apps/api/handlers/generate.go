@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/Sahil-796/seeql/internal/generator"
-	"github.com/Sahil-796/seeql/internal/parser"
 	"github.com/Sahil-796/seeql/internal/schema"
 	"github.com/gin-gonic/gin"
 )
@@ -31,13 +30,7 @@ func GenerateData(c *gin.Context) {
 		req.RowsPerTable = 10
 	}
 
-	stmt, err := parser.Parse(req.SQL)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, GenerateResponse{Error: err.Error()})
-		return
-	}
-
-	s, err := schema.BuildSchema(stmt)
+	s, err := schema.BuildSchema(req.SQL)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, GenerateResponse{Error: err.Error()})
 		return

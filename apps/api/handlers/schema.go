@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/Sahil-796/seeql/internal/parser"
 	"github.com/Sahil-796/seeql/internal/schema"
 	"github.com/gin-gonic/gin"
 )
@@ -27,13 +26,7 @@ func InferSchema(c *gin.Context) {
 		return
 	}
 
-	stmt, err := parser.Parse(req.SQL)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, InferResponse{Error: err.Error()})
-		return
-	}
-
-	inferredSchema, err := schema.BuildSchema(stmt)
+	inferredSchema, err := schema.BuildSchema(req.SQL)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, InferResponse{Error: err.Error()})
 		return

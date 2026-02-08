@@ -12,12 +12,6 @@ type ExecutionMode interface {
 	Close() error
 }
 
-type QueryContext struct {
-	ParsedStmt any
-	Schema     *schema.Schema
-	Data       map[string][]map[string]any
-}
-
 type QueryResult struct {
 	Columns  []string         `json:"columns"`
 	Rows     []map[string]any `json:"rows"`

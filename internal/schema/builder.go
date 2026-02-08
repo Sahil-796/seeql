@@ -1,12 +1,65 @@
 package schema
 
 import (
+	"fmt"
+
 	"github.com/Sahil-796/seeql/internal/parser"
 	"strings"
 	"vitess.io/vitess/go/vt/sqlparser"
 )
 
-func BuildSchema(stmt sqlparser.Statement) (*Schema, error) {
+// BuildSchema builds a schema from a SQL query string.
+// Handles both SELECT and CREATE TABLE statements.
+func BuildSchema(query string) (*Schema, error) {
+
+	if parser.IsCreateTable(query) {
+		return buildSchemaFromDDL(query)
+	}
+
+	// Parse as SELECT statement
+	stmt, err := parser.Parse(query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse SQL: %w", err)
+	}
+
+	return buildSchemaFromSelect(stmt)
+}
+
+func buildSchemaFromDDL(query string) (*Schema, error) {
+	createTable, err := parser.ParseCreateTable(query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse CREATE TABLE: %w", err)
+	}
+
+	parsedDDL, err := parser.ExtractSchemaFromDDL(createTable)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract schema from DDL: %w", err)
+	}
+
+	tableSchema := TableSchema{
+		Name:    parsedDDL.TableName,
+		Columns: make([]ColumnSchema, 0, len(parsedDDL.Columns)),
+	}
+
+	for _, col := range parsedDDL.Columns {
+		tableSchema.Columns = append(tableSchema.Columns, ColumnSchema{
+			Name:      col.Name,
+			Type:      col.Type,
+			Nullable:  col.Nullable,
+			IsPrimary: col.IsPrimary,
+			Constraints: Constraints{
+				Unique: col.IsUnique,
+			},
+		})
+	}
+
+	return &Schema{
+		Tables:        []TableSchema{tableSchema},
+		Relationships: nil,
+	}, nil
+}
+
+func buildSchemaFromSelect(stmt sqlparser.Statement) (*Schema, error) {
 	aliases := parser.ExtractTables(stmt)
 	tableToColumns := parser.ExtractColumns(stmt, aliases)
 	joins := parser.ExtractJoins(stmt, aliases)
@@ -15,12 +68,17 @@ func BuildSchema(stmt sqlparser.Statement) (*Schema, error) {
 	for tableName := range tableToColumns {
 		tablenames[tableName] = struct{}{}
 	}
+	//  add tables from aliases (for cases like SELECT * where no columns extracted)
+	for _, tableName := range aliases {
+		tablenames[tableName] = struct{}{}
+	}
 
 	// STEP 1: Pre-compute PK map
 	// pkMap stores: tableName -> pkColumnName
 	// This allows O(1) lookup when resolving FKs
 	pkMap := make(map[string]string)
-	for tableName, columns := range tableToColumns {
+	for tableName := range tablenames {
+		columns := tableToColumns[tableName]
 		foundPK := false
 		for _, colName := range columns {
 			if isPrimaryKeyColumn(colName) {
@@ -36,59 +94,104 @@ func BuildSchema(stmt sqlparser.Statement) (*Schema, error) {
 	}
 
 	schema := &Schema{
-		Tables:        make([]TableSchema, 0, len(tableToColumns)),
+		Tables:        make([]TableSchema, 0, len(tablenames)),
 		Relationships: joins,
 	}
 
 	// STEP 2: Build schema with immediate FK resolution
-	for tableName, columns := range tableToColumns {
+	for tableName := range tablenames {
+		columns := tableToColumns[tableName]
 		tableSchema := TableSchema{
 			Name:    tableName,
 			Columns: make([]ColumnSchema, 0, len(columns)),
 		}
 
-		for _, colName := range columns {
-			col := ColumnSchema{
-				Name: colName,
-				Type: inferColumnType(colName),
-			}
-
-			// Detect Primary Key
-			if isPrimaryKeyColumn(colName) {
-				col.IsPrimary = true
-			}
-
-			// Detect Foreign Key and IMMEDIATELY resolve it
-			if strings.HasSuffix(strings.ToLower(colName), "_id") && colName != "id" {
-				prefix := strings.TrimSuffix(strings.ToLower(colName), "_id")
-				refTable := inferReferencedTable(prefix, tablenames)
-
-				if refTable != "" {
-					col.IsForeign = true
-					col.RefTable = refTable
-
-					// Use pkMap for O(1) lookup of referenced PK
-					refPkCol := pkMap[refTable]
-					col.RefColumn = refPkCol
-
-					// Match FK type to PK type
-					// If PK is "id" -> INTEGER, otherwise infer from PK column name
-					if refPkCol == "id" {
-						col.Type = "INTEGER"
-					} else {
-						col.Type = inferColumnType(refPkCol)
-					}
-				} else {
-					col.IsForeign = true
+		// If no columns extracted (e.g., SELECT *), add default columns
+		if len(columns) == 0 {
+			defaultCols := getDefaultColumnsForTable(tableName)
+			for _, colName := range defaultCols {
+				col := ColumnSchema{
+					Name:      colName,
+					Type:      inferColumnType(colName),
+					IsPrimary: colName == "id",
 				}
+				tableSchema.Columns = append(tableSchema.Columns, col)
 			}
+		} else {
+			for _, colName := range columns {
+				col := ColumnSchema{
+					Name: colName,
+					Type: inferColumnType(colName),
+				}
 
-			tableSchema.Columns = append(tableSchema.Columns, col)
+				// Detect Primary Key
+				if isPrimaryKeyColumn(colName) {
+					col.IsPrimary = true
+				}
+
+				// Detect Foreign Key and IMMEDIATELY resolve it
+				if strings.HasSuffix(strings.ToLower(colName), "_id") && colName != "id" {
+					prefix := strings.TrimSuffix(strings.ToLower(colName), "_id")
+					refTable := inferReferencedTable(prefix, tablenames)
+
+					if refTable != "" {
+						col.IsForeign = true
+						col.RefTable = refTable
+
+						// Use pkMap for O(1) lookup of referenced PK
+						refPkCol := pkMap[refTable]
+						col.RefColumn = refPkCol
+
+						// Match FK type to PK type
+						// If PK is "id" -> INTEGER, otherwise infer from PK column name
+						if refPkCol == "id" {
+							col.Type = "INTEGER"
+						} else {
+							col.Type = inferColumnType(refPkCol)
+						}
+					} else {
+						col.IsForeign = true
+					}
+				}
+
+				tableSchema.Columns = append(tableSchema.Columns, col)
+			}
 		}
 		schema.Tables = append(schema.Tables, tableSchema)
 	}
 
 	return schema, nil
+}
+
+// getDefaultColumnsForTable returns sensible default columns for a table
+// based on common conventions when SELECT * is used
+func getDefaultColumnsForTable(tableName string) []string {
+	lower := strings.ToLower(tableName)
+
+	// Common table patterns
+	switch {
+	case lower == "users" || strings.HasSuffix(lower, "_users"):
+		return []string{"id", "name", "email", "created_at"}
+	case lower == "posts" || strings.HasSuffix(lower, "_posts"):
+		return []string{"id", "title", "content", "user_id", "created_at"}
+	case lower == "orders" || strings.HasSuffix(lower, "_orders"):
+		return []string{"id", "user_id", "total", "status", "created_at"}
+	case lower == "products" || strings.HasSuffix(lower, "_products"):
+		return []string{"id", "name", "price", "description", "sku"}
+	case lower == "comments" || strings.HasSuffix(lower, "_comments"):
+		return []string{"id", "post_id", "user_id", "content", "created_at"}
+	case lower == "categories" || strings.HasSuffix(lower, "_categories"):
+		return []string{"id", "name", "description"}
+	case lower == "tags" || strings.HasSuffix(lower, "_tags"):
+		return []string{"id", "name"}
+	case lower == "customers" || strings.HasSuffix(lower, "_customers"):
+		return []string{"id", "name", "email", "phone"}
+	case lower == "items" || strings.HasSuffix(lower, "_items"):
+		return []string{"id", "name", "quantity", "price"}
+	default:
+		// Generic defaults for any table
+		return []string{"id", "name", "created_at"}
+	}
 }
 
 // a big vibe coded aggressive column type selector
