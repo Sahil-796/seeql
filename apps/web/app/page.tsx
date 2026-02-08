@@ -77,6 +77,8 @@ export default function TerminalView() {
   const [rowCount, setRowCount] = useState(10);
   const [history, setHistory] = useState<string[]>([]);
   const [time, setTime] = useState("");
+  const [isQuickRefOpen, setIsQuickRefOpen] = useState(false);
+  const [isSplitView, setIsSplitView] = useState(true);
 
   useEffect(() => {
     const updateTime = () => {
@@ -119,18 +121,20 @@ export default function TerminalView() {
           {/* Output Area */}
           <div className="flex-1 overflow-y-auto p-6 space-y-4">
             {/* Welcome Message */}
-            <div className="text-[#666] text-sm border border-[#333] p-4 bg-[#111]">
-              <pre className="text-base">{`
+            {!sql.trim() && (
+              <div className="text-[#666] text-sm border border-[#333] p-4 bg-[#111]">
+                <pre className="text-base">{`
   ____  _____ _____ ___  _     
  / ___|| ____| ____/ _ \\| |    
  \\___ \\|  _| |  _|| | | | |    
   ___) | |___| |__| |_| | |___ 
  |____/|_____|_____\\__\\_\\_____|
-                               
+                                
  SQL Playground & Schema Visualizer
  Type your query below and press ENTER or click [EXECUTE]
               `}</pre>
-            </div>
+              </div>
+            )}
 
             {/* History */}
             {history.map((cmd) => (
@@ -146,15 +150,42 @@ export default function TerminalView() {
               </div>
             )}
 
-            {/* Schema Output */}
-            {schema && (
-              <div className="border border-[#333] bg-[#111] p-5">
-                <div className="text-[#39ff14] text-sm mb-3 pb-2 border-b border-[#333]">
-                  ▓▓▓ INFERRED SCHEMA ▓▓▓
+            {(schema || (rows && rows.length > 0)) && (
+              <div className="flex items-center justify-between gap-4 border border-[#333] bg-[#111] px-5 py-3">
+                <div className="text-[#39ff14] text-sm">▓▓▓ RESULTS LAYOUT ▓▓▓</div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsSplitView(false)}
+                    className={`px-3 py-1 text-xs border border-[#333] transition-colors ${
+                      !isSplitView ? "bg-[#39ff14] text-[#0d0d0d]" : "text-[#999] hover:text-[#e5e5e5]"
+                    }`}
+                  >
+                    STACKED
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsSplitView(true)}
+                    className={`px-3 py-1 text-xs border border-[#333] transition-colors ${
+                      isSplitView ? "bg-[#39ff14] text-[#0d0d0d]" : "text-[#999] hover:text-[#e5e5e5]"
+                    }`}
+                  >
+                    SIDE BY SIDE
+                  </button>
                 </div>
-                <SchemaBlock schema={schema} />
               </div>
             )}
+
+            <div className={`grid gap-4 ${isSplitView ? "lg:grid-cols-2" : "grid-cols-1"}`}>
+              {/* Schema Output */}
+              {schema && (
+                <div className="border border-[#333] bg-[#111] p-5">
+                  <div className="text-[#39ff14] text-sm mb-3 pb-2 border-b border-[#333]">
+                    ▓▓▓ INFERRED SCHEMA ▓▓▓
+                  </div>
+                  <SchemaBlock schema={schema} />
+                </div>
+              )}
 
             {/* Data Output */}
             {data && Object.keys(data).length > 0 && (
@@ -185,33 +216,34 @@ export default function TerminalView() {
               </div>
             )}
 
-            {/* Query Results */}
-            {rows && rows.length > 0 && (
-              <div className="border border-[#333] bg-[#111] p-5">
-                <div className="text-[#39ff14] text-sm mb-3 pb-2 border-b border-[#333]">
-                  ▓▓▓ QUERY RESULTS{" "}
-                  {resultRowCount ? `(${resultRowCount} rows)` : ""} ▓▓▓
-                </div>
-                {columns && (
-                  <div className="text-[#666] text-xs mb-2">
-                    Columns: {columns.join(", ")}
+              {/* Query Results */}
+              {rows && rows.length > 0 && (
+                <div className="border border-[#333] bg-[#111] p-5">
+                  <div className="text-[#39ff14] text-sm mb-3 pb-2 border-b border-[#333]">
+                    ▓▓▓ QUERY RESULTS{" "}
+                    {resultRowCount ? `(${resultRowCount} rows)` : ""} ▓▓▓
                   </div>
-                )}
-                <DataTable
-                  data={rows}
-                  tableName=""
-                  maxRows={15}
-                  className="rounded-lg border border-[#2a2a2a] bg-[#0f0f10]"
-                  tableClassName="border-separate border-spacing-0"
-                  captionClassName="text-[#666]"
-                  headerClassName="border border-[#2a2a2a] text-[#e5e5e5] font-semibold"
-                  cellClassName="border border-[#2a2a2a] text-[#cfcfcf]"
-                  getRowKey={(row, index) =>
-                    String(row.id ?? row.ID ?? row.Id ?? `result-${index}`)
-                  }
-                />
-              </div>
-            )}
+                  {columns && (
+                    <div className="text-[#666] text-xs mb-2">
+                      Columns: {columns.join(", ")}
+                    </div>
+                  )}
+                  <DataTable
+                    data={rows}
+                    tableName=""
+                    maxRows={15}
+                    className="rounded-lg border border-[#2a2a2a] bg-[#0f0f10]"
+                    tableClassName="border-separate border-spacing-0"
+                    captionClassName="text-[#666]"
+                    headerClassName="border border-[#2a2a2a] text-[#e5e5e5] font-semibold"
+                    cellClassName="border border-[#2a2a2a] text-[#cfcfcf]"
+                    getRowKey={(row, index) =>
+                      String(row.id ?? row.ID ?? row.Id ?? `result-${index}`)
+                    }
+                  />
+                </div>
+              )}
+            </div>
 
             {/* Loading State */}
             {isLoading && (
@@ -268,7 +300,18 @@ export default function TerminalView() {
         </main>
 
         {/* Side Panel - Quick Reference */}
-        <aside className="w-72 border-l-2 border-[#333] bg-[#0a0a0a] p-5 text-sm overflow-y-auto hidden lg:block">
+        <button
+          type="button"
+          onClick={() => setIsQuickRefOpen((open) => !open)}
+          className="fixed right-0 top-1/2 z-40 -translate-y-1/2 rounded-l border border-[#333] bg-[#0a0a0a] px-3 py-2 text-xs text-[#39ff14] shadow-lg"
+        >
+          {isQuickRefOpen ? "HIDE" : "HELP"}
+        </button>
+        <aside
+          className={`fixed right-0 top-[56px] z-30 h-[calc(100vh-56px)] w-72 border-l-2 border-[#333] bg-[#0a0a0a] p-5 text-sm overflow-y-auto transition-transform ${
+            isQuickRefOpen ? "translate-x-0" : "translate-x-full"
+          }`}
+        >
           <div className="text-[#39ff14] font-bold mb-4 text-base">
             {"// QUICK REFERENCE"}
           </div>
@@ -294,9 +337,9 @@ export default function TerminalView() {
                 {`SELECT
   u.name,
   p.title
-FROM users u
-JOIN posts p
-ON u.id = p.user_id`}
+ FROM users u
+ JOIN posts p
+ ON u.id = p.user_id`}
               </pre>
             </div>
 
