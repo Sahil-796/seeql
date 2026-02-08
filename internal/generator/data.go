@@ -1,19 +1,20 @@
 package generator
 
 import (
-	"github.com/brianvoe/gofakeit/v7"
 	"math/rand"
+	"strings"
 	"time"
 
 	"github.com/Sahil-796/seeql/internal/schema"
+	"github.com/brianvoe/gofakeit/v7"
 )
 
 type Generator struct {
 	Schema      *schema.Schema
 	rng         *rand.Rand
 	faker       *gofakeit.Faker
-	primaryKeys map[string][]any                   
-	uniqueVals  map[string]map[string]map[any]bool 
+	primaryKeys map[string][]any
+	uniqueVals  map[string]map[string]map[any]bool
 }
 
 func New(s *schema.Schema) *Generator {
@@ -41,7 +42,7 @@ func (g *Generator) GenerateData(rowsPerTable int) map[string][]map[string]any {
 			row := make(map[string]any)
 
 			for _, column := range table.Columns {
-				
+
 				row[column.Name] = g.GenerateColumnValue(table.Name, column, i, rowsPerTable)
 			}
 
@@ -112,11 +113,7 @@ func (g *Generator) GenerateColumnValue(tableName string, column schema.ColumnSc
 	var value any
 	switch column.Type {
 	case "TEXT", "VARCHAR":
-		if column.Constraints.MaxLength > 0 {
-			value = faker.LetterN(uint(column.Constraints.MaxLength))
-		} else {
-			value = faker.Sentence(3)
-		}
+		value = g.generateTextByColumnName(column)
 	case "INTEGER":
 		if column.Constraints.Max > column.Constraints.Min {
 			value = faker.IntRange(column.Constraints.Min, column.Constraints.Max)
@@ -168,4 +165,74 @@ func (g *Generator) ensureUnique(tableName, columnName string, value any, regene
 
 	g.uniqueVals[tableName][columnName][value] = true
 	return value
+}
+
+func (g *Generator) generateTextByColumnName(column schema.ColumnSchema) any {
+	faker := g.faker
+	nameLower := strings.ToLower(column.Name)
+
+	// Name-related columns
+	if strings.Contains(nameLower, "firstname") || nameLower == "fname" {
+		return faker.FirstName()
+	}
+	if strings.Contains(nameLower, "lastname") || nameLower == "lname" {
+		return faker.LastName()
+	}
+	if nameLower == "name" || nameLower == "username" || strings.Contains(nameLower, "_name") {
+		return faker.Name()
+	}
+
+	// Title/description columns
+	if nameLower == "title" || nameLower == "subject" {
+		return faker.Phrase()
+	}
+	if nameLower == "description" || strings.Contains(nameLower, "desc") {
+		return faker.Sentence(5)
+	}
+	if nameLower == "content" || nameLower == "body" || nameLower == "text" {
+		return faker.Paragraph(1, 3, 5, " ")
+	}
+
+	// Address columns
+	if nameLower == "city" {
+		return faker.City()
+	}
+	if nameLower == "country" {
+		return faker.Country()
+	}
+	if nameLower == "address" || nameLower == "street" {
+		return faker.Street()
+	}
+	if nameLower == "state" || nameLower == "province" {
+		return faker.State()
+	}
+	if nameLower == "zip" || nameLower == "zipcode" || nameLower == "postal" {
+		return faker.Zip()
+	}
+
+	// Company/organization
+	if nameLower == "company" || nameLower == "organization" {
+		return faker.Company()
+	}
+
+	// Job-related
+	if nameLower == "job" || nameLower == "jobtitle" || nameLower == "position" {
+		return faker.JobTitle()
+	}
+
+	// Status/type columns
+	if nameLower == "status" {
+		statuses := []string{"active", "inactive", "pending", "archived"}
+		return statuses[faker.IntRange(0, len(statuses)-1)]
+	}
+	if nameLower == "type" || nameLower == "category" {
+		return faker.Word()
+	}
+
+	// Default: short word or respect max length
+	if column.Constraints.MaxLength > 0 && column.Constraints.MaxLength <= 50 {
+		return faker.LetterN(uint(column.Constraints.MaxLength))
+	}
+
+	return faker.Word()
 }
