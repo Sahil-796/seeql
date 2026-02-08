@@ -6,27 +6,26 @@ import (
 
 	"github.com/Sahil-796/seeql/internal/db"
 	"github.com/Sahil-796/seeql/internal/generator"
-	"github.com/Sahil-796/seeql/internal/parser"
 	"github.com/Sahil-796/seeql/internal/schema"
 	_ "github.com/mattn/go-sqlite3"
 )
 
 type QuickMode struct {
-	parsedStmt  any
-	schema      *schema.Schema
-	data        map[string][]map[string]any
-	sqlDB       *sql.DB
-	initialized bool
+	schema        *schema.Schema
+	sqlDB         *sql.DB
+	initialized   bool
+	createdTables map[string]bool
 }
 
 func NewQuickMode() *QuickMode {
 	return &QuickMode{
-		data: make(map[string][]map[string]any),
+		createdTables: make(map[string]bool),
 	}
 }
 
 func (q *QuickMode) Run(query string) (*QueryResult, error) {
-	ctx, err := q.Prepare(query)
+
+	newSchema, err := schema.BuildSchema(query)
 	if err != nil {
 		return nil, err
 	}
@@ -38,20 +37,36 @@ func (q *QuickMode) Run(query string) (*QueryResult, error) {
 		}
 		q.sqlDB = sqlDB
 		q.initialized = true
+		q.schema = newSchema
+	} else {
+		q.schema = mergeSchemas(q.schema, newSchema)
 	}
 
-	for _, table := range ctx.Schema.Tables {
-		if err := db.CreateTable(q.sqlDB, &table); err != nil {
-			return nil, fmt.Errorf("failed to create table %s: %w", table.Name, err)
+	gen := generator.New(q.schema)
+	data := gen.GenerateData(5) // todo: make this dynamic
+
+	for _, table := range q.schema.Tables {
+		if !q.createdTables[table.Name] {
+			if err := db.CreateTable(q.sqlDB, &table); err != nil {
+				return nil, fmt.Errorf("failed to create table %s: %w", table.Name, err)
+			}
+			q.createdTables[table.Name] = true
+		} else {
+			// check if new columns are needed for old tables
+			if err := q.addNewColumns(&table); err != nil {
+				return nil, err
+			}
 		}
 	}
 
-	for tableName, rows := range ctx.Data {
+	// data insertion
+	for tableName, rows := range data {
 		if err := db.InsertData(q.sqlDB, tableName, rows); err != nil {
 			return nil, fmt.Errorf("failed to insert data into %s: %w", tableName, err)
 		}
 	}
 
+	// query execution
 	execResult, err := db.ExecuteQuery(q.sqlDB, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute query: %w", err)
@@ -61,89 +76,31 @@ func (q *QuickMode) Run(query string) (*QueryResult, error) {
 		Columns:  execResult.Columns,
 		Rows:     execResult.Rows,
 		RowCount: execResult.RowCount,
-		Schema:   ctx.Schema,
+		Schema:   q.schema,
 	}, nil
 }
 
-// parse, build schema, generate data, build result wrapper
-func (q *QuickMode) Prepare(query string) (*QueryContext, error) {
-	// Check if it's a CREATE TABLE statement
-	if parser.IsCreateTable(query) {
-		return q.prepareFromDDL(query)
-	}
-
-	// Otherwise use inferred schema
-	stmt, err := parser.Parse(query)
+func (q *QuickMode) addNewColumns(table *schema.TableSchema) error {
+	existingCols, err := db.GetTableColumns(q.sqlDB, table.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse SQL: %w", err)
-	}
-	q.parsedStmt = stmt
-
-	q.schema, err = schema.BuildSchema(stmt)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build schema: %w", err)
+		return fmt.Errorf("failed to get columns for table %s: %w", table.Name, err)
 	}
 
-	gen := generator.New(q.schema)
-	q.data = gen.GenerateData(5)
-
-	return &QueryContext{
-		ParsedStmt: q.parsedStmt,
-		Schema:     q.schema,
-		Data:       q.data,
-	}, nil
-}
-
-// prepareFromDDL handles CREATE TABLE statements
-func (q *QuickMode) prepareFromDDL(query string) (*QueryContext, error) {
-	createTable, err := parser.ParseCreateTable(query)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse CREATE TABLE: %w", err)
-	}
-	q.parsedStmt = createTable
-
-	parsedDDL, err := parser.ExtractSchemaFromDDL(createTable)
-	if err != nil {
-		return nil, fmt.Errorf("failed to extract schema from DDL: %w", err)
+	existingColSet := make(map[string]bool)
+	for _, col := range existingCols {
+		existingColSet[col] = true
 	}
 
-	// Convert ParsedDDL to schema.Schema
-	q.schema = convertParsedDDLToSchema(parsedDDL)
-
-	// For CREATE TABLE statements, we don't generate data yet
-	// (user would need to run INSERT or SELECT after)
-	q.data = make(map[string][]map[string]any)
-
-	return &QueryContext{
-		ParsedStmt: q.parsedStmt,
-		Schema:     q.schema,
-		Data:       q.data,
-	}, nil
-}
-
-// convertParsedDDLToSchema converts parser.ParsedDDL to schema.Schema
-func convertParsedDDLToSchema(parsed *parser.ParsedDDL) *schema.Schema {
-	tableSchema := schema.TableSchema{
-		Name:    parsed.TableName,
-		Columns: make([]schema.ColumnSchema, 0, len(parsed.Columns)),
+	// Add any new columns
+	for i := range table.Columns {
+		if !existingColSet[table.Columns[i].Name] {
+			if err := db.AddColumn(q.sqlDB, table.Name, &table.Columns[i]); err != nil {
+				// Column might already exist or other error - continue
+				continue
+			}
+		}
 	}
-
-	for _, col := range parsed.Columns {
-		tableSchema.Columns = append(tableSchema.Columns, schema.ColumnSchema{
-			Name:      col.Name,
-			Type:      col.Type,
-			Nullable:  col.Nullable,
-			IsPrimary: col.IsPrimary,
-			Constraints: schema.Constraints{
-				Unique: col.IsUnique,
-			},
-		})
-	}
-
-	return &schema.Schema{
-		Tables:        []schema.TableSchema{tableSchema},
-		Relationships: nil,
-	}
+	return nil
 }
 
 func (q *QuickMode) GetSchema() (*schema.Schema, error) {
@@ -158,4 +115,59 @@ func (q *QuickMode) Close() error {
 		return q.sqlDB.Close()
 	}
 	return nil
+}
+
+// mergeSchemas merges new schema into existing schema
+func mergeSchemas(existing, newSchema *schema.Schema) *schema.Schema {
+	if existing == nil {
+		return newSchema
+	}
+
+	result := &schema.Schema{
+		Tables:        make([]schema.TableSchema, len(existing.Tables)),
+		Relationships: existing.Relationships,
+	}
+	copy(result.Tables, existing.Tables)
+
+	for _, newTable := range newSchema.Tables {
+		found := false
+		for i, existingTable := range result.Tables {
+			if existingTable.Name == newTable.Name {
+				// Merge columns
+				existingCols := make(map[string]bool)
+				for _, col := range existingTable.Columns {
+					existingCols[col.Name] = true
+				}
+				for _, newCol := range newTable.Columns {
+					if !existingCols[newCol.Name] {
+						result.Tables[i].Columns = append(result.Tables[i].Columns, newCol)
+					}
+				}
+				found = true
+				break
+			}
+		}
+		if !found {
+			result.Tables = append(result.Tables, newTable)
+		}
+	}
+
+	// Merge relationships
+	for _, newRel := range newSchema.Relationships {
+		found := false
+		for _, existingRel := range result.Relationships {
+			if existingRel.LeftTable == newRel.LeftTable &&
+				existingRel.RightTable == newRel.RightTable &&
+				existingRel.LeftColumn == newRel.LeftColumn &&
+				existingRel.RightColumn == newRel.RightColumn {
+				found = true
+				break
+			}
+		}
+		if !found {
+			result.Relationships = append(result.Relationships, newRel)
+		}
+	}
+
+	return result
 }
