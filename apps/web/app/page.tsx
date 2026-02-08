@@ -295,6 +295,18 @@ export default function TerminalView() {
                     value={sql}
                     onChange={(e) => setSql(e.target.value)}
                     onKeyDown={(e) => {
+                      if (e.key === "Tab") {
+                        e.preventDefault();
+                        const target = e.currentTarget;
+                        const start = target.selectionStart ?? 0;
+                        const end = target.selectionEnd ?? 0;
+                        const nextValue = `${sql.slice(0, start)}\t${sql.slice(end)}`;
+                        setSql(nextValue);
+                        requestAnimationFrame(() => {
+                          target.selectionStart = target.selectionEnd = start + 1;
+                        });
+                        return;
+                      }
                       if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
                         e.preventDefault();
                         handleRun();
