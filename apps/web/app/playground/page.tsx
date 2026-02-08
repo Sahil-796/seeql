@@ -868,6 +868,48 @@ export default function PlaygroundPage() {
 
         <section className="space-y-6 min-w-0">
           <div className="border border-[#333] bg-[#111] p-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-[#39ff14] text-sm mb-1">
+                  ▓▓▓ QUERY RESULTS ▓▓▓
+                </h2>
+                <p className="text-sm text-[#666]">
+                  Results from the latest run appear here.
+                </p>
+              </div>
+              <div className="text-xs uppercase tracking-[0.2em] text-[#666]">
+                {result?.row_count !== undefined
+                  ? `${result.row_count} rows`
+                  : "No run yet"}
+              </div>
+            </div>
+
+            {error && (
+              <div className="mt-4 border border-[#ff6b6b]/30 bg-[#ff6b6b]/10 p-4 text-sm text-[#ff6b6b]">
+                {error}
+              </div>
+            )}
+
+            <div className="mt-4">
+              {result?.rows && result.rows.length > 0 ? (
+                <DataTable
+                  data={result.rows}
+                  tableName=""
+                  maxRows={25}
+                  className="border border-[#2a2a2a]"
+                  tableClassName="border-separate border-spacing-0"
+                  captionClassName="text-[#666]"
+                  headerClassName="border border-[#2a2a2a] text-[#e5e5e5] font-semibold"
+                  cellClassName="border border-[#2a2a2a] text-[#cfcfcf]"
+                />
+              ) : (
+                <div className="border border-dashed border-[#333] bg-[#0f0f10] p-6 text-center text-sm text-[#666]">
+                  Run a query to see results.
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="border border-[#333] bg-[#111] p-6">
             <h2 className="text-[#39ff14] text-sm mb-1">
               ▓▓▓ SQL CONTROL ROOM ▓▓▓
             </h2>
@@ -919,49 +961,6 @@ export default function PlaygroundPage() {
               <pre className="max-h-[240px] overflow-auto border border-[#2a2a2a] bg-[#0f0f10] p-4 text-xs text-[#999]">
                 {sqlBundleText}
               </pre>
-            </div>
-          </div>
-
-          <div className="border border-[#333] bg-[#111] p-6">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="text-[#39ff14] text-sm mb-1">
-                  ▓▓▓ QUERY RESULTS ▓▓▓
-                </h2>
-                <p className="text-sm text-[#666]">
-                  Results from the latest run appear here.
-                </p>
-              </div>
-              <div className="text-xs uppercase tracking-[0.2em] text-[#666]">
-                {result?.row_count !== undefined
-                  ? `${result.row_count} rows`
-                  : "No run yet"}
-              </div>
-            </div>
-
-            {error && (
-              <div className="mt-4 border border-[#ff6b6b]/30 bg-[#ff6b6b]/10 p-4 text-sm text-[#ff6b6b]">
-                {error}
-              </div>
-            )}
-
-            <div className="mt-4">
-              {result?.rows && result.rows.length > 0 ? (
-                <DataTable
-                  data={result.rows}
-                  tableName=""
-                  maxRows={25}
-                  className="border border-[#2a2a2a]"
-                  tableClassName="border-separate border-spacing-0"
-                  captionClassName="text-[#666]"
-                  headerClassName="border border-[#2a2a2a] text-[#e5e5e5] font-semibold"
-                  cellClassName="border border-[#2a2a2a] text-[#cfcfcf]"
-                />
-              ) : (
-                <div className="border border-dashed border-[#333] bg-[#0f0f10] p-6 text-center text-sm text-[#666]">
-                  Run a query to see results.
-                </div>
-              )}
             </div>
           </div>
         </section>
