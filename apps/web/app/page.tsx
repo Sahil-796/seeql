@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { DataTable } from "@/components";
 import {
@@ -83,6 +85,7 @@ export default function TerminalView() {
   const [history, setHistory] = useState<string[]>([]);
   const [isQuickRefOpen, setIsQuickRefOpen] = useState(false);
   const [isSplitView, setIsSplitView] = useState(true);
+  const pathname = usePathname();
 
   const handleRun = () => {
     if (sql.trim()) {
@@ -97,16 +100,35 @@ export default function TerminalView() {
       <header className="bg-[#1a1a1a] border-b-2 border-[#39ff14] px-6 py-4 sticky top-0 z-50">
         <div className="flex items-center justify-between">
           <div className="flex items-baseline gap-3">
-            <span className="text-[#e5e5e5] text-lg font-semibold tracking-[0.2em] font-mono">
+            <span className="text-[#e5e5e5] text-lg font-semibold tracking-[0.2em]">
               SEEQL
             </span>
             <span className="text-[#39ff14] text-xs uppercase tracking-[0.3em]">
               SQL Playground
             </span>
           </div>
-          <div className="text-xs text-[#666] uppercase tracking-[0.2em]">
-            Schema Visualizer
-          </div>
+          <nav className="flex items-center gap-4 text-xs uppercase tracking-[0.2em]">
+            <Link
+              href="/"
+              className={
+                pathname === "/"
+                  ? "text-[#39ff14]"
+                  : "text-[#666] hover:text-[#e5e5e5]"
+              }
+            >
+              Quick Mode
+            </Link>
+            <Link
+              href="/playground"
+              className={
+                pathname === "/playground"
+                  ? "text-[#39ff14]"
+                  : "text-[#666] hover:text-[#e5e5e5]"
+              }
+            >
+              Playground
+            </Link>
+          </nav>
         </div>
       </header>
 
