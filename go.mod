@@ -4,11 +4,11 @@ go 1.25.5
 
 require (
 	github.com/brianvoe/gofakeit/v7 v7.14.0
+	github.com/gin-contrib/cors v1.7.6
 	github.com/gin-gonic/gin v1.11.0
+	github.com/google/uuid v1.6.0
 	vitess.io/vitess v0.23.0
 )
-
-require github.com/gin-contrib/cors v1.7.6 // indirect
 
 require (
 	github.com/bytedance/sonic v1.14.0 // indirect

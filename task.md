@@ -248,6 +248,8 @@ SELECT * FROM users
 - ✅ Aggregation support (COUNT, SUM, AVG, MIN, MAX)
 - ✅ CREATE TABLE support (explicit schema definition)
 - ✅ Multi-statement execution
+- ✅ Schema merging across queries (cumulative schema)
+- ✅ Smart data generation (name fields get names, not lorem ipsum)
 
 ### API Endpoints
 - ✅ `GET /health` - Health check
@@ -267,42 +269,211 @@ SELECT COUNT(*), SUM(amount) FROM orders
 CREATE TABLE users (id INT PRIMARY KEY, name VARCHAR(100));
 SELECT * FROM users
 
--- Multi-statement
-CREATE TABLE products (id INT, price DECIMAL(10,2));
-SELECT * FROM products
+-- Multi-statement with cumulative schema
+SELECT id, name FROM users;
+SELECT * FROM users  -- Now has all columns from first query
 ```
 
-## Next Steps Priority Order
+---
 
-### 🟢 LOW Priority (Next Phase)
+## 🚀 CURRENT: PlaygroundMode Development
 
-1. **PlaygroundMode Foundation** ⭐ NEXT MAJOR FEATURE
-   - Session management with UUID
-   - Persistent SQLite DB per session (file-based)
-   - Multi-query support with state persistence
-   - Query history tracking
+### Overview
+**PlaygroundMode** is a persistent SQL playground where users:
+- Define schema once with CREATE TABLE
+- Run multiple queries against the same database
+- Data persists across queries (not regenerated)
+- Full session management
 
-2. **Enhanced Data Generation**
-   - Locale-specific fake data (names, addresses)
-   - Custom data templates
-   - Relationship-aware data (child table respects parent FK distribution)
+### Architecture
+```
+┌─────────────┐     ┌──────────────┐     ┌──────────────────┐
+│   Client    │────▶│  Session ID  │────▶│  File-based DB   │
+│             │◀────│   (UUID)     │◀────│  (per session)   │
+└─────────────┘     └──────────────┘     └──────────────────┘
+```
 
-3. **API Improvements**
-   - OpenAPI/Swagger documentation
-   - Request validation middleware
-   - Rate limiting
-   - CORS configuration
+### Implementation Tasks
 
-4. **Developer Experience**
-   - Docker compose setup
-   - Makefile with common commands
-   - GitHub Actions CI/CD
-   - Code coverage reporting
+#### Phase 1: Core Infrastructure ⭐ START HERE
 
-5. **Frontend Integration**
-   - React/Vue component for query builder
-   - Schema visualizer
-   - Results table with pagination
+**1. Session Management** (`internal/db/session.go`)
+```go
+type Session struct {
+    ID       string        // UUID
+    DB       *sql.DB       // File-based SQLite (not :memory:)
+    Schema   *schema.Schema
+    CreatedAt time.Time
+    LastUsed  time.Time
+}
+
+type SessionManager struct {
+    sessions map[string]*Session
+    mu       sync.RWMutex
+}
+
+func (sm *SessionManager) CreateSession() (*Session, error)
+func (sm *SessionManager) GetSession(id string) (*Session, error)
+func (sm *SessionManager) CloseSession(id string) error
+func (sm *SessionManager) CleanupOldSessions(maxAge time.Duration)
+```
+
+**2. File-based SQLite** (`internal/db/sqlite.go`)
+- Change from `:memory:` to file-based: `/tmp/seeql_sessions/{session_id}.db`
+- Ensure cleanup on session close
+
+**3. PlaygroundMode Implementation** (`internal/modes/playground.go`)
+```go
+type PlaygroundMode struct {
+    sessionID string
+    sessionMgr *db.SessionManager
+    db        *sql.DB
+}
+
+func (p *PlaygroundMode) Run(query string) (*QueryResult, error)
+func (p *PlaygroundMode) GetSchema() (*schema.Schema, error)
+func (p *PlaygroundMode) Close() error
+```
+
+**4. API Handlers** (`apps/api/handlers/playground.go`)
+- `POST /playground/session` - Create new session
+  - Returns: `{ "session_id": "uuid", "created_at": "..." }`
+  
+- `POST /playground/execute` - Execute query in session
+  - Request: `{ "session_id": "uuid", "sql": "SELECT ..." }`
+  - Returns: `QueryResult`
+  
+- `GET /playground/schema/:session_id` - Get current schema
+  - Returns: `{ "tables": [...], "relationships": [...] }`
+  
+- `DELETE /playground/session/:session_id` - Close session
+  
+- `GET /playground/sessions` - List active sessions (admin)
+
+#### Phase 2: Enhanced Features
+
+**5. Query History**
+- Track all queries executed in a session
+- `GET /playground/history/:session_id`
+- Returns: `[{ "query": "...", "timestamp": "...", "duration_ms": 123 }]`
+
+**6. Schema Evolution**
+- Allow ALTER TABLE, DROP TABLE, etc.
+- Track schema changes over time
+
+**7. Data Persistence**
+- Export session data: `GET /playground/export/:session_id`
+- Import session data: `POST /playground/import`
+
+#### Phase 3: Polish
+
+**8. Session Limits**
+- Max sessions per IP
+- Session timeout (auto-cleanup after 1 hour inactive)
+- Max queries per session
+
+**9. Security**
+- SQL injection prevention (already handled by Vitess)
+- Query whitelist/blacklist
+- Resource limits (query timeout, result size limit)
+
+### File Structure
+```
+internal/
+  db/
+    session.go          # NEW: Session management
+    sqlite.go           # UPDATE: Support file-based DB
+  modes/
+    playground.go       # NEW: PlaygroundMode implementation
+apps/api/handlers/
+  playground.go         # NEW: Playground API handlers
+  playground_test.go    # NEW: Tests
+routes/
+  routes.go             # UPDATE: Add playground routes
+```
+
+### API Endpoints Summary
+```
+POST   /playground/session              Create session
+POST   /playground/execute              Execute query (header: X-Session-ID)
+GET    /playground/schema/:id           Get schema
+DELETE /playground/session/:id          Close session
+GET    /playground/sessions             List sessions
+GET    /playground/history/:id          Query history
+```
+
+### Testing Checklist
+- [ ] Session creation/retrieval/closing
+- [ ] Data persists across queries
+- [ ] Multiple queries in same session
+- [ ] Schema evolution (CREATE → INSERT → SELECT → ALTER)
+- [ ] Session cleanup/timeout
+- [ ] Concurrent sessions isolation
+- [ ] Resource limits (timeout, size)
+
+### Example Usage Flow
+```bash
+# 1. Create session
+curl -X POST http://localhost:8080/playground/session
+# Response: { "session_id": "550e8400-e29b-41d4-a716-446655440000" }
+
+# 2. Create table
+SESSION_ID="550e8400-e29b-41d4-a716-446655440000"
+curl -X POST http://localhost:8080/playground/execute \
+  -H "Content-Type: application/json" \
+  -H "X-Session-ID: $SESSION_ID" \
+  -d '{"sql": "CREATE TABLE users (id INT PRIMARY KEY, name TEXT)"}'
+
+# 3. Insert data
+curl -X POST http://localhost:8080/playground/execute \
+  -H "Content-Type: application/json" \
+  -H "X-Session-ID: $SESSION_ID" \
+  -d '{"sql": "INSERT INTO users (id, name) VALUES (1, \"Alice\"), (2, \"Bob\")"}'
+
+# 4. Query data (data persists!)
+curl -X POST http://localhost:8080/playground/execute \
+  -H "Content-Type: application/json" \
+  -H "X-Session-ID: $SESSION_ID" \
+  -d '{"sql": "SELECT * FROM users"}'
+
+# 5. Close session
+curl -X DELETE http://localhost:8080/playground/session/$SESSION_ID
+```
+
+### Key Differences from QuickMode
+| Feature | QuickMode | PlaygroundMode |
+|---------|-----------|----------------|
+| Database | `:memory:` (new per request) | File-based (persistent) |
+| Data | Regenerated each time | Persists across queries |
+| Schema | Inferred from SELECT | Explicit CREATE TABLE |
+| Session | Stateless | Stateful (UUID-based) |
+| Use case | Quick testing | Interactive exploration |
+
+---
+
+## Future Ideas
+
+### Enhanced Data Generation
+- Locale-specific fake data (names, addresses)
+- Custom data templates
+- Relationship-aware data (child table respects parent FK distribution)
+
+### API Improvements
+- OpenAPI/Swagger documentation
+- Request validation middleware
+- Rate limiting
+- CORS configuration
+
+### Developer Experience
+- Docker compose setup
+- Makefile with common commands
+- GitHub Actions CI/CD
+- Code coverage reporting
+
+### Frontend Integration
+- React/Vue component for query builder
+- Schema visualizer
+- Results table with pagination
 
 ## Dependencies Already Installed
 - `github.com/gin-gonic/gin` - HTTP framework
@@ -310,7 +481,7 @@ SELECT * FROM products
 - `github.com/brianvoe/gofakeit/v7` - Fake data generation
 - `github.com/mattn/go-sqlite3` - SQLite driver
 
-## API Testing Commands
+## API Testing Commands (QuickMode - Still Works!)
 
 ```bash
 # Health check
@@ -360,5 +531,7 @@ curl -X POST http://localhost:8080/quick-run \
 - **NEW**: Users can provide **explicit schema via CREATE TABLE**
 - **NEW**: **Multi-statement support** - split by semicolons
 - **NEW**: **Aggregation functions** work (COUNT, SUM, AVG, MIN, MAX)
+- **NEW**: **Cumulative schema** - queries build on each other
+- **NEW**: **Smart data generation** - appropriate data per column type
 - All high-priority features have been implemented ✅
 - **Ready for PlaygroundMode development** 🚀
