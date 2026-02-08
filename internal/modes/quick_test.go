@@ -45,3 +45,36 @@ func TestQuickModeWithJoin(t *testing.T) {
 
 	t.Logf("Success! Got %d rows with columns: %v", result.RowCount, result.Columns)
 }
+
+func TestQuickModeMultipleStatements(t *testing.T) {
+	mode := NewQuickMode()
+	defer mode.Close()
+
+	// First statement: JOIN query that creates users and posts tables
+	result1, err := mode.Run("SELECT u.name, p.title FROM users u JOIN posts p ON u.id = p.user_id")
+	if err != nil {
+		t.Fatalf("First query failed: %v", err)
+	}
+
+	if result1.RowCount == 0 {
+		t.Error("Expected some rows from first query")
+	}
+
+	t.Logf("First query: Got %d rows with columns: %v", result1.RowCount, result1.Columns)
+
+	// Second statement: SELECT from users table - this should work now!
+	result2, err := mode.Run("SELECT * FROM users")
+	if err != nil {
+		t.Fatalf("Second query failed: %v", err)
+	}
+
+	if result2.RowCount == 0 {
+		t.Error("Expected some rows from second query")
+	}
+
+	if len(result2.Columns) != 2 {
+		t.Errorf("Expected 2 columns (id, name), got: %d", len(result2.Columns))
+	}
+
+	t.Logf("Second query: Got %d rows with columns: %v", result2.RowCount, result2.Columns)
+}

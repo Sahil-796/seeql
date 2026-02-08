@@ -12,10 +12,11 @@ import (
 )
 
 type QuickMode struct {
-	parsedStmt any
-	schema     *schema.Schema
-	data       map[string][]map[string]any
-	sqlDB      *sql.DB
+	parsedStmt  any
+	schema      *schema.Schema
+	data        map[string][]map[string]any
+	sqlDB       *sql.DB
+	initialized bool
 }
 
 func NewQuickMode() *QuickMode {
@@ -30,25 +31,28 @@ func (q *QuickMode) Run(query string) (*QueryResult, error) {
 		return nil, err
 	}
 
-	sqlDB, err := sql.Open("sqlite3", ":memory:")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create database: %w", err)
+	if !q.initialized {
+		sqlDB, err := sql.Open("sqlite3", ":memory:")
+		if err != nil {
+			return nil, fmt.Errorf("failed to create database: %w", err)
+		}
+		q.sqlDB = sqlDB
+		q.initialized = true
 	}
-	q.sqlDB = sqlDB
 
 	for _, table := range ctx.Schema.Tables {
-		if err := db.CreateTable(sqlDB, &table); err != nil {
+		if err := db.CreateTable(q.sqlDB, &table); err != nil {
 			return nil, fmt.Errorf("failed to create table %s: %w", table.Name, err)
 		}
 	}
 
 	for tableName, rows := range ctx.Data {
-		if err := db.InsertData(sqlDB, tableName, rows); err != nil {
+		if err := db.InsertData(q.sqlDB, tableName, rows); err != nil {
 			return nil, fmt.Errorf("failed to insert data into %s: %w", tableName, err)
 		}
 	}
 
-	execResult, err := db.ExecuteQuery(sqlDB, query)
+	execResult, err := db.ExecuteQuery(q.sqlDB, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute query: %w", err)
 	}
