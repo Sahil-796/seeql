@@ -97,7 +97,7 @@ export default function TerminalView() {
       <header className="bg-[#1a1a1a] border-b-2 border-[#39ff14] px-6 py-4 sticky top-0 z-50">
         <div className="flex items-center justify-between">
           <div className="flex items-baseline gap-3">
-            <span className="text-[#e5e5e5] text-lg font-semibold tracking-[0.2em]">
+            <span className="text-[#e5e5e5] text-lg font-semibold tracking-[0.2em] font-mono">
               SEEQL
             </span>
             <span className="text-[#39ff14] text-xs uppercase tracking-[0.3em]">
@@ -293,7 +293,8 @@ export default function TerminalView() {
                         const nextValue = `${sql.slice(0, start)}\t${sql.slice(end)}`;
                         setSql(nextValue);
                         requestAnimationFrame(() => {
-                          target.selectionStart = target.selectionEnd = start + 1;
+                          target.selectionStart = target.selectionEnd =
+                            start + 1;
                         });
                         return;
                       }

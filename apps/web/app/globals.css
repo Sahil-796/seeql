@@ -46,9 +46,8 @@
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-  
+  --font-mono: var(--font-jetbrains-mono);
+
   /* Custom Colors for View 3 - Organic */
   --color-cream: #fdfcf9;
   --color-sage-50: #f6f7f4;
@@ -95,7 +94,7 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans), system-ui, sans-serif;
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
 }
 
 /* Scrollbar styling */
