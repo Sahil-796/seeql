@@ -1,23 +1,39 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
+
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 interface DataTableProps {
   data: Record<string, unknown>[];
   tableName: string;
   className?: string;
+  tableClassName?: string;
   headerClassName?: string;
   cellClassName?: string;
+  captionClassName?: string;
   maxRows?: number;
+  getRowKey?: (row: Record<string, unknown>, index: number) => string;
 }
 
 export function DataTable({
   data,
   tableName,
   className = "",
+  tableClassName = "",
   headerClassName = "",
   cellClassName = "",
+  captionClassName = "",
   maxRows = 50,
+  getRowKey,
 }: DataTableProps) {
   const [page, setPage] = useState(0);
 
@@ -26,7 +42,6 @@ export function DataTable({
     return Object.keys(data[0]);
   }, [data]);
 
-  const totalPages = Math.ceil(data.length / maxRows);
   const displayData = data.slice(page * maxRows, (page + 1) * maxRows);
 
   if (data.length === 0) {
@@ -45,63 +60,32 @@ export function DataTable({
 
   return (
     <div className={className}>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr>
-              {columns.map((col) => (
-                <th
-                  key={col}
-                  className={`text-left font-medium px-3 py-2 ${headerClassName}`}
-                >
-                  {col}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {displayData.map((row, rowIndex) => (
-              <tr key={rowIndex}>
-                {columns.map((col) => (
-                  <td
-                    key={col}
-                    className={`px-3 py-2 ${cellClassName}`}
-                  >
-                    <span className="truncate block max-w-[200px]">
-                      {formatValue(row[col])}
-                    </span>
-                  </td>
-                ))}
-              </tr>
+      <Table className={tableClassName}>
+        <TableCaption className={captionClassName}>{tableName}</TableCaption>
+        <TableHeader>
+          <TableRow>
+            {columns.map((col) => (
+              <TableHead key={col} className={headerClassName}>
+                {col}
+              </TableHead>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {displayData.map((row, rowIndex) => (
+            <TableRow key={getRowKey?.(row, rowIndex) ?? `${page}-${rowIndex}`}>
+              {columns.map((col) => (
+                <TableCell key={col} className={cellClassName}>
+                  <span className="block max-w-[200px] truncate">
+                    {formatValue(row[col])}
+                  </span>
+                </TableCell>
+              ))}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
 
-      {totalPages > 1 && (
-        <div className="flex justify-between items-center mt-4 text-sm">
-          <span className="opacity-60">
-            Showing {page * maxRows + 1}-{Math.min((page + 1) * maxRows, data.length)} of{" "}
-            {data.length}
-          </span>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
-              disabled={page === 0}
-              className="px-3 py-1 disabled:opacity-30"
-            >
-              Prev
-            </button>
-            <button
-              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-              disabled={page >= totalPages - 1}
-              className="px-3 py-1 disabled:opacity-30"
-            >
-              Next
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -110,16 +94,22 @@ interface MultiTableDataProps {
   data: Record<string, Record<string, unknown>[]>;
   className?: string;
   tableWrapperClassName?: string;
+  tableClassName?: string;
   headerClassName?: string;
   cellClassName?: string;
+  captionClassName?: string;
+  getRowKey?: (row: Record<string, unknown>, index: number) => string;
 }
 
 export function MultiTableData({
   data,
   className = "",
   tableWrapperClassName = "",
+  tableClassName = "",
   headerClassName = "",
   cellClassName = "",
+  captionClassName = "",
+  getRowKey,
 }: MultiTableDataProps) {
   const [activeTable, setActiveTable] = useState<string | null>(null);
   const tableNames = Object.keys(data);
@@ -142,6 +132,7 @@ export function MultiTableData({
             <button
               key={name}
               onClick={() => setActiveTable(name)}
+              type="button"
               className={`px-3 py-1.5 rounded text-sm whitespace-nowrap transition-all ${
                 selectedTable === name
                   ? "bg-current/10 font-medium"
@@ -159,8 +150,11 @@ export function MultiTableData({
         <DataTable
           data={data[selectedTable] || []}
           tableName={selectedTable}
+          tableClassName={tableClassName}
           headerClassName={headerClassName}
           cellClassName={cellClassName}
+          captionClassName={captionClassName}
+          getRowKey={getRowKey}
         />
       </div>
     </div>

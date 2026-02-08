@@ -3,11 +3,49 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --card: #ffffff;
+  --card-foreground: #171717;
+  --popover: #ffffff;
+  --popover-foreground: #171717;
+  --primary: #111111;
+  --primary-foreground: #f8f8f8;
+  --secondary: #f4f4f5;
+  --secondary-foreground: #111111;
+  --muted: #f3f4f6;
+  --muted-foreground: #6b7280;
+  --accent: #f1f5f9;
+  --accent-foreground: #0f172a;
+  --destructive: #ef4444;
+  --destructive-foreground: #f8fafc;
+  --border: #e4e4e7;
+  --input: #e4e4e7;
+  --ring: #0f172a;
+  --radius: 10px;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   
@@ -34,6 +72,23 @@
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+    --card: #0f0f10;
+    --card-foreground: #ededed;
+    --popover: #0f0f10;
+    --popover-foreground: #ededed;
+    --primary: #ededed;
+    --primary-foreground: #0a0a0a;
+    --secondary: #1f2937;
+    --secondary-foreground: #f9fafb;
+    --muted: #1f2937;
+    --muted-foreground: #9ca3af;
+    --accent: #111827;
+    --accent-foreground: #f9fafb;
+    --destructive: #ef4444;
+    --destructive-foreground: #fef2f2;
+    --border: #1f2937;
+    --input: #1f2937;
+    --ring: #e5e7eb;
   }
 }
 

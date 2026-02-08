@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { DataTable } from "@/components";
 import { useSeeql } from "@/lib/hooks";
 import type { Schema } from "@/lib/types";
 
@@ -17,53 +18,25 @@ function TerminalPrompt({ children }: { children: React.ReactNode }) {
   );
 }
 
-function AsciiTable({ data, tableName }: { data: Record<string, unknown>[]; tableName: string }) {
-  if (data.length === 0) return null;
-  
-  const columns = Object.keys(data[0]);
-  const colWidths = columns.map(col => {
-    const maxDataWidth = Math.max(...data.map(row => String(row[col] ?? "NULL").length));
-    return Math.max(col.length, maxDataWidth, 4);
-  });
-  
-  const horizontalLine = "+" + colWidths.map(w => "-".repeat(w + 2)).join("+") + "+";
-  
-  const formatRow = (values: string[]) => 
-    "|" + values.map((v, i) => ` ${v.padEnd(colWidths[i])} `).join("|") + "|";
-
-  return (
-    <div className="font-mono text-sm whitespace-pre overflow-x-auto">
-      <div className="text-[#666] mb-1">// TABLE: {tableName} ({data.length} rows)</div>
-      <div className="text-[#39ff14]">{horizontalLine}</div>
-      <div className="text-[#fff]">{formatRow(columns)}</div>
-      <div className="text-[#39ff14]">{horizontalLine}</div>
-      {data.slice(0, 15).map((row, i) => (
-        <div key={i} className="text-[#ccc]">
-          {formatRow(columns.map(col => String(row[col] ?? "NULL").slice(0, colWidths[columns.indexOf(col)])))}
-        </div>
-      ))}
-      <div className="text-[#39ff14]">{horizontalLine}</div>
-      {data.length > 15 && (
-        <div className="text-[#666] mt-1">... {data.length - 15} more rows</div>
-      )}
-    </div>
-  );
-}
-
 function SchemaBlock({ schema }: { schema: Schema }) {
   return (
     <div className="font-mono text-sm">
-      {schema.tables.map(table => (
+      {schema.tables.map((table) => (
         <div key={table.name} className="mb-4">
-          <div className="text-[#ff6b6b]">CREATE TABLE {table.name} {"{"}</div>
-          {table.columns.map(col => (
+          <div className="text-[#ff6b6b]">
+            CREATE TABLE {table.name} {"{"}
+          </div>
+          {table.columns.map((col) => (
             <div key={col.name} className="pl-4 text-[#ccc]">
               <span className="text-[#ffd93d]">{col.name}</span>
               <span className="text-[#666]"> : </span>
               <span className="text-[#6bcb77]">{col.type || "TEXT"}</span>
               {col.is_primary && <span className="text-[#ff6b6b]"> [PK]</span>}
               {col.is_foreign && (
-                <span className="text-[#4d96ff]"> [FK → {col.ref_table}.{col.ref_column}]</span>
+                <span className="text-[#4d96ff]">
+                  {" "}
+                  [FK → {col.ref_table}.{col.ref_column}]
+                </span>
               )}
             </div>
           ))}
@@ -72,10 +45,14 @@ function SchemaBlock({ schema }: { schema: Schema }) {
       ))}
       {schema.relationships && schema.relationships.length > 0 && (
         <div className="mt-4 pt-4 border-t border-[#333]">
-          <div className="text-[#666] mb-2">// RELATIONSHIPS</div>
-          {schema.relationships.map((rel, i) => (
-            <div key={i} className="text-[#4d96ff]">
-              {rel.LeftTable}.{rel.LeftColumn} {"===>"} {rel.RightTable}.{rel.RightColumn}
+          <div className="text-[#666] mb-2">{"// RELATIONSHIPS"}</div>
+          {schema.relationships.map((rel) => (
+            <div
+              key={`${rel.LeftTable}.${rel.LeftColumn}-${rel.RightTable}.${rel.RightColumn}`}
+              className="text-[#4d96ff]"
+            >
+              {rel.LeftTable}.{rel.LeftColumn} {"===>"} {rel.RightTable}.
+              {rel.RightColumn}
             </div>
           ))}
         </div>
@@ -85,7 +62,18 @@ function SchemaBlock({ schema }: { schema: Schema }) {
 }
 
 export default function TerminalView() {
-  const { sql, schema, data, columns, rows, rowCount: resultRowCount, isLoading, error, setSql, runQuery } = useSeeql();
+  const {
+    sql,
+    schema,
+    data,
+    columns,
+    rows,
+    rowCount: resultRowCount,
+    isLoading,
+    error,
+    setSql,
+    runQuery,
+  } = useSeeql();
   const [rowCount, setRowCount] = useState(10);
   const [history, setHistory] = useState<string[]>([]);
   const [time, setTime] = useState("");
@@ -101,7 +89,7 @@ export default function TerminalView() {
 
   const handleRun = () => {
     if (sql.trim()) {
-      setHistory(prev => [...prev.slice(-4), sql.trim()]);
+      setHistory((prev) => [...prev.slice(-4), sql.trim()]);
       runQuery(sql, rowCount);
     }
   };
@@ -116,7 +104,9 @@ export default function TerminalView() {
             <div className="w-3.5 h-3.5 rounded-full bg-[#ffbd2e]" />
             <div className="w-3.5 h-3.5 rounded-full bg-[#27c93f]" />
           </div>
-          <span className="text-[#39ff14] text-base font-bold tracking-wider">SEEQL_TERMINAL v1.0</span>
+          <span className="text-[#39ff14] text-base font-bold tracking-wider">
+            SEEQL_TERMINAL v1.0
+          </span>
         </div>
         <div className="flex items-center gap-6 text-sm">
           <span className="text-[#39ff14]">{time}</span>
@@ -143,8 +133,8 @@ export default function TerminalView() {
             </div>
 
             {/* History */}
-            {history.map((cmd, i) => (
-              <TerminalPrompt key={i}>
+            {history.map((cmd) => (
+              <TerminalPrompt key={cmd}>
                 <span className="text-[#666]">{cmd}</span>
               </TerminalPrompt>
             ))}
@@ -174,7 +164,22 @@ export default function TerminalView() {
                 </div>
                 <div className="space-y-6">
                   {Object.entries(data).map(([tableName, tableRows]) => (
-                    <AsciiTable key={tableName} data={tableRows} tableName={tableName} />
+                    <DataTable
+                      key={tableName}
+                      data={tableRows}
+                      tableName={tableName}
+                      maxRows={15}
+                      className="rounded-lg border border-[#2a2a2a] bg-[#0f0f10]"
+                      tableClassName="border-separate border-spacing-0"
+                      captionClassName="text-[#666]"
+                      headerClassName="border border-[#2a2a2a] text-[#e5e5e5] font-semibold"
+                      cellClassName="border border-[#2a2a2a] text-[#cfcfcf]"
+                      getRowKey={(row, index) =>
+                        String(
+                          row.id ?? row.ID ?? row.Id ?? `${tableName}-${index}`,
+                        )
+                      }
+                    />
                   ))}
                 </div>
               </div>
@@ -184,14 +189,27 @@ export default function TerminalView() {
             {rows && rows.length > 0 && (
               <div className="border border-[#333] bg-[#111] p-5">
                 <div className="text-[#39ff14] text-sm mb-3 pb-2 border-b border-[#333]">
-                  ▓▓▓ QUERY RESULTS {resultRowCount ? `(${resultRowCount} rows)` : ''} ▓▓▓
+                  ▓▓▓ QUERY RESULTS{" "}
+                  {resultRowCount ? `(${resultRowCount} rows)` : ""} ▓▓▓
                 </div>
                 {columns && (
                   <div className="text-[#666] text-xs mb-2">
-                    Columns: {columns.join(', ')}
+                    Columns: {columns.join(", ")}
                   </div>
                 )}
-                <AsciiTable data={rows} tableName="Results" />
+                <DataTable
+                  data={rows}
+                  tableName=""
+                  maxRows={15}
+                  className="rounded-lg border border-[#2a2a2a] bg-[#0f0f10]"
+                  tableClassName="border-separate border-spacing-0"
+                  captionClassName="text-[#666]"
+                  headerClassName="border border-[#2a2a2a] text-[#e5e5e5] font-semibold"
+                  cellClassName="border border-[#2a2a2a] text-[#cfcfcf]"
+                  getRowKey={(row, index) =>
+                    String(row.id ?? row.ID ?? row.Id ?? `result-${index}`)
+                  }
+                />
               </div>
             )}
 
@@ -211,7 +229,9 @@ export default function TerminalView() {
               <input
                 type="number"
                 value={rowCount}
-                onChange={(e) => setRowCount(Math.max(1, parseInt(e.target.value) || 1))}
+                onChange={(e) =>
+                  setRowCount(Math.max(1, parseInt(e.target.value) || 1))
+                }
                 className="w-14 bg-transparent border border-[#333] px-2 py-1 text-[#39ff14] text-sm focus:outline-none focus:border-[#39ff14]"
                 min={1}
                 max={100}
@@ -235,6 +255,7 @@ export default function TerminalView() {
               <button
                 onClick={handleRun}
                 disabled={isLoading || !sql.trim()}
+                type="button"
                 className="px-5 py-2.5 bg-[#39ff14] text-[#0d0d0d] text-sm font-bold hover:bg-[#2ee00d] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 [EXECUTE]
@@ -248,8 +269,10 @@ export default function TerminalView() {
 
         {/* Side Panel - Quick Reference */}
         <aside className="w-72 border-l-2 border-[#333] bg-[#0a0a0a] p-5 text-sm overflow-y-auto hidden lg:block">
-          <div className="text-[#39ff14] font-bold mb-4 text-base">// QUICK REFERENCE</div>
-          
+          <div className="text-[#39ff14] font-bold mb-4 text-base">
+            {"// QUICK REFERENCE"}
+          </div>
+
           <div className="space-y-5 text-[#666]">
             <div>
               <div className="text-[#ffd93d] mb-2">Supported Queries:</div>
@@ -268,7 +291,7 @@ export default function TerminalView() {
             <div>
               <div className="text-[#ffd93d] mb-2">Example:</div>
               <pre className="text-[#4d96ff] whitespace-pre-wrap text-sm">
-{`SELECT
+                {`SELECT
   u.name,
   p.title
 FROM users u
