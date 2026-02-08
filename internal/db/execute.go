@@ -125,3 +125,27 @@ func InsertData(sqlDB *sql.DB, tableName string, rows []map[string]any) error {
 
 	return nil
 }
+
+// GetTableColumns returns the column names for a given table
+func GetTableColumns(sqlDB *sql.DB, tableName string) ([]string, error) {
+	rows, err := sqlDB.Query(fmt.Sprintf("SELECT * FROM %s LIMIT 0", tableName))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get table info: %w", err)
+	}
+	defer rows.Close()
+
+	columns, err := rows.Columns()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get columns: %w", err)
+	}
+
+	return columns, nil
+}
+
+// AddColumn adds a new column to an existing table
+func AddColumn(sqlDB *sql.DB, tableName string, col *schema.ColumnSchema) error {
+	sqlType := mapToSQLiteType(col.Type)
+	query := fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", tableName, col.Name, sqlType)
+	_, err := sqlDB.Exec(query)
+	return err
+}
