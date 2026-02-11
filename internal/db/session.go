@@ -21,6 +21,16 @@ type Session struct {
 	LastUsed  time.Time
 }
 
+func NewSession(id string, db *sql.DB) *Session {
+	return &Session{
+		ID:        id,
+		DB:        db,
+		Schema:    &schema.Schema{Tables: []schema.TableSchema{}}, // NEVER nil!
+		CreatedAt: time.Now(),
+		LastUsed:  time.Now(),
+	}
+}
+
 type SessionManager struct {
 	sessions map[string]*Session
 	mu       sync.RWMutex
@@ -36,28 +46,22 @@ func NewSessionManager(dataDir string) *SessionManager {
 
 // creates a new session
 func (sm *SessionManager) CreateSession() (*Session, error) {
-	
-	uuid := uuid.New().String()
+	sessionID := uuid.New().String()
 	if err := sm.ensureDataDir(); err != nil {
 		return nil, err
 	}
-	dbPath := sm.getDBPath(uuid)
-	
+	dbPath := sm.getDBPath(sessionID)
+
 	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
 		return nil, err
 	}
-	
-	session := &Session{
-		ID:        uuid,
-		DB:        db,
-		Schema:    nil,
-		CreatedAt: time.Now(),
-		LastUsed:  time.Now(),
-	}
+
+	session := NewSession(sessionID, db)
+
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
-	sm.sessions[uuid] = session
+	sm.sessions[sessionID] = session
 	return session, nil
 }
 
@@ -65,7 +69,7 @@ func (sm *SessionManager) CreateSession() (*Session, error) {
 func (sm *SessionManager) GetSession(id string) (*Session, error) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
-	
+
 	if session, ok := sm.sessions[id]; ok {
 		session.LastUsed = time.Now()
 		return session, nil
@@ -77,15 +81,15 @@ func (sm *SessionManager) CloseSession(id string) error {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 	session, err := sm.GetSession(id)
-	
+
 	if err != nil {
 		return err
 	}
-	
+
 	session.DB.Close()
 	// close session also cleans up the db path
 	os.Remove(sm.getDBPath(id))
-	
+
 	delete(sm.sessions, id)
 	return nil
 }
@@ -93,14 +97,14 @@ func (sm *SessionManager) CloseSession(id string) error {
 func (sm *SessionManager) CleanupOldSessions(maxAge time.Duration) int {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
-	
+
 	var count int
 	for id, session := range sm.sessions {
 		age := session.LastUsed.Sub(session.CreatedAt)
 		// crazy other option -> session.CreatedAt.Add(-session.LastUsed)
 		if age > maxAge {
 			sm.CloseSession(id)
-			count ++
+			count++
 		}
 	}
 	return count

@@ -71,14 +71,8 @@ func (p *PlaygroundMode) handleCreateTable(ctx context.Context, stmt *sqlparser.
 		return nil, err
 	}
 
-	// make or append here
-	if p.session.Schema == nil {
-		p.session.Schema = &schema.Schema{
-			Tables: []schema.TableSchema{*tableSchema},
-		}
-	} else {
-		p.session.Schema.Tables = append(p.session.Schema.Tables, *tableSchema)
-	}
+	// Schema is guaranteed initialized by NewSession constructor
+	p.session.Schema.Tables = append(p.session.Schema.Tables, *tableSchema)
 
 	return &QueryResult{
 		RowCount: 0,
