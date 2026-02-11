@@ -9,25 +9,19 @@ import (
 )
 
 func Setup(r *gin.Engine) {
-	// Schema and data generation (individual steps)
-	r.POST("/infer", handlers.InferSchema)
-	r.POST("/generate", handlers.GenerateData)
-
-	// Full execution pipeline (parse → schema → generate → execute)
-	r.POST("/quick-run", handlers.QuickRun)
-	r.POST("/execute", handlers.QuickRun) // Alias for /quick-run
-	
 	dataDir := os.Getenv("DATA_DIR")
 	if dataDir == "" {
 		dataDir = "./data/sessions"
 	}
-	sm := db.NewSessionManager(dataDir)
-	
-	handlers.SessionManager = sm
-	
+	handlers.SessionManager = db.NewSessionManager(dataDir)
+
+	r.POST("/infer", handlers.InferSchema)
+	r.POST("/generate", handlers.GenerateData)
+	r.POST("/quick-run", handlers.QuickRun)
+
 	r.POST("/playground/session", handlers.CreateSession)
 	r.DELETE("/playground/session/:id", handlers.CloseSession)
-	
-	// Health check
+	r.POST("/playground/session/:id/execute", handlers.ExecutePlaygroundQuery)
+
 	r.GET("/health", handlers.Health)
 }

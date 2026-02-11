@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/Sahil-796/seeql/internal/db"
+	"github.com/Sahil-796/seeql/internal/modes"
 	"github.com/gin-gonic/gin"
 )
 
@@ -28,4 +29,38 @@ func CloseSession(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Session closed successfully"})
+}
+
+type PlaygroundExecuteRequest struct {
+	SQL string `json:"sql" binding:"required"`
+}
+
+func ExecutePlaygroundQuery(c *gin.Context) {
+	sessionID := c.Param("id")
+
+	session, err := SessionManager.GetSession(sessionID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		return
+	}
+
+	var req PlaygroundExecuteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	mode, err := modes.NewMode(modes.ModePlayground, session)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	result, err := mode.Run(req.SQL)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
 }

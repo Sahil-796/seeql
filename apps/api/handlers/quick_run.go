@@ -21,7 +21,7 @@ func QuickRun(c *gin.Context) {
 
 	statements := splitStatements(req.SQL)
 
-	mode, err := modes.NewMode(modes.ModeQuick)
+	mode, err := modes.NewMode(modes.ModeQuick, nil)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
