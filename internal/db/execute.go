@@ -150,6 +150,12 @@ func AddColumn(sqlDB *sql.DB, tableName string, col *schema.ColumnSchema) error 
 	return err
 }
 
+
+
+// DIRECT .EXEC CALLS -----------------------------------------------------------
+
+
+
 // ExecuteInsert executes an INSERT statement and returns the number of affected rows
 func ExecuteInsert(sqlDB *sql.DB, query string) (int64, error) {
 	result, err := sqlDB.Exec(query)

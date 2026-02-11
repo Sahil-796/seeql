@@ -1,8 +1,7 @@
 package modes
 
 import (
-	"fmt"
-
+	"github.com/Sahil-796/seeql/internal/db"
 	"github.com/Sahil-796/seeql/internal/schema"
 )
 
@@ -24,12 +23,12 @@ const (
 	ModePlayground string = "playground"
 )
 
-func NewMode(mode string) (ExecutionMode, error) {
+func NewMode(mode string, session *db.Session) (ExecutionMode, error) {
 	switch mode {
 	case ModeQuick:
 		return NewQuickMode(), nil
 	case ModePlayground:
-		return nil, fmt.Errorf("playground mode not implemented")
+		return NewPlaygroundMode(session), nil
 	default:
 		return NewQuickMode(), nil
 	}
