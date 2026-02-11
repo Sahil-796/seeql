@@ -1,6 +1,7 @@
 package modes
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 
@@ -23,8 +24,7 @@ func NewQuickMode() *QuickMode {
 	}
 }
 
-func (q *QuickMode) Run(query string) (*QueryResult, error) {
-
+func (q *QuickMode) Run(ctx context.Context, query string) (*QueryResult, error) {
 	newSchema, err := schema.BuildSchema(query)
 	if err != nil {
 		return nil, err
@@ -53,7 +53,7 @@ func (q *QuickMode) Run(query string) (*QueryResult, error) {
 			q.createdTables[table.Name] = true
 		} else {
 			// check if new columns are needed for old tables
-			if err := q.addNewColumns(&table); err != nil {
+			if err := q.addNewColumns(ctx, &table); err != nil {
 				return nil, err
 			}
 		}
@@ -67,7 +67,7 @@ func (q *QuickMode) Run(query string) (*QueryResult, error) {
 	}
 
 	// query execution
-	execResult, err := db.ExecuteQuery(q.sqlDB, query)
+	execResult, err := db.ExecuteQuery(ctx, q.sqlDB, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute query: %w", err)
 	}
@@ -80,8 +80,8 @@ func (q *QuickMode) Run(query string) (*QueryResult, error) {
 	}, nil
 }
 
-func (q *QuickMode) addNewColumns(table *schema.TableSchema) error {
-	existingCols, err := db.GetTableColumns(q.sqlDB, table.Name)
+func (q *QuickMode) addNewColumns(ctx context.Context, table *schema.TableSchema) error {
+	existingCols, err := db.GetTableColumns(ctx, q.sqlDB, table.Name)
 	if err != nil {
 		return fmt.Errorf("failed to get columns for table %s: %w", table.Name, err)
 	}

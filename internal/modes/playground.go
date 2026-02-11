@@ -1,6 +1,8 @@
 package modes
 
 import (
+	"context"
+
 	"github.com/Sahil-796/seeql/internal/db"
 	"github.com/Sahil-796/seeql/internal/parser"
 	"github.com/Sahil-796/seeql/internal/schema"
@@ -17,7 +19,7 @@ func NewPlaygroundMode(session *db.Session) *PlaygroundMode {
 	}
 }
 
-func (p *PlaygroundMode) Run(query string) (*QueryResult, error) {
+func (p *PlaygroundMode) Run(ctx context.Context, query string) (*QueryResult, error) {
 	stmt, err := parser.Parse(query)
 	if err != nil {
 		return nil, err
@@ -25,22 +27,21 @@ func (p *PlaygroundMode) Run(query string) (*QueryResult, error) {
 
 	switch stmt := stmt.(type) {
 	case *sqlparser.CreateTable:
-		return p.handleCreateTable(stmt)
+		return p.handleCreateTable(ctx, stmt)
 	case *sqlparser.Select:
-		return p.handleSelect(query)
+		return p.handleSelect(ctx, query)
 	case *sqlparser.Insert:
-		return p.handleInsert(query)
+		return p.handleInsert(ctx, query)
 	case *sqlparser.Update:
-		return p.handleUpdate(query)
+		return p.handleUpdate(ctx, query)
 	case *sqlparser.Delete:
-		return p.handleDelete(query)
+		return p.handleDelete(ctx, query)
 	default:
-		return p.executeRaw(query)
+		return p.executeRaw(ctx, query)
 	}
 }
 
-func (p *PlaygroundMode) handleCreateTable(stmt *sqlparser.CreateTable) (*QueryResult, error) {
-
+func (p *PlaygroundMode) handleCreateTable(ctx context.Context, stmt *sqlparser.CreateTable) (*QueryResult, error) {
 	parsedDDL, err := parser.ExtractSchemaFromDDL(stmt)
 	if err != nil {
 		return nil, err
@@ -85,8 +86,8 @@ func (p *PlaygroundMode) handleCreateTable(stmt *sqlparser.CreateTable) (*QueryR
 	}, nil
 }
 
-func (p *PlaygroundMode) handleSelect(query string) (*QueryResult, error) {
-	result, err := db.ExecuteQuery(p.session.DB, query)
+func (p *PlaygroundMode) handleSelect(ctx context.Context, query string) (*QueryResult, error) {
+	result, err := db.ExecuteQuery(ctx, p.session.DB, query)
 	if err != nil {
 		return nil, err
 	}
@@ -99,11 +100,13 @@ func (p *PlaygroundMode) handleSelect(query string) (*QueryResult, error) {
 	}, nil
 }
 
-func (p *PlaygroundMode) handleInsert(query string) (*QueryResult, error) {
-	rowsAffected, err := db.ExecuteInsert(p.session.DB, query)
+func (p *PlaygroundMode) handleInsert(ctx context.Context, query string) (*QueryResult, error) {
+	result, err := p.session.DB.ExecContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
+
+	rowsAffected, _ := result.RowsAffected()
 
 	return &QueryResult{
 		RowCount: int(rowsAffected),
@@ -111,11 +114,13 @@ func (p *PlaygroundMode) handleInsert(query string) (*QueryResult, error) {
 	}, nil
 }
 
-func (p *PlaygroundMode) handleUpdate(query string) (*QueryResult, error) {
-	rowsAffected, err := db.ExecuteUpdate(p.session.DB, query)
+func (p *PlaygroundMode) handleUpdate(ctx context.Context, query string) (*QueryResult, error) {
+	result, err := p.session.DB.ExecContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
+
+	rowsAffected, _ := result.RowsAffected()
 
 	return &QueryResult{
 		RowCount: int(rowsAffected),
@@ -123,11 +128,13 @@ func (p *PlaygroundMode) handleUpdate(query string) (*QueryResult, error) {
 	}, nil
 }
 
-func (p *PlaygroundMode) handleDelete(query string) (*QueryResult, error) {
-	rowsAffected, err := db.ExecuteDelete(p.session.DB, query)
+func (p *PlaygroundMode) handleDelete(ctx context.Context, query string) (*QueryResult, error) {
+	result, err := p.session.DB.ExecContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
+
+	rowsAffected, _ := result.RowsAffected()
 
 	return &QueryResult{
 		RowCount: int(rowsAffected),
@@ -135,8 +142,8 @@ func (p *PlaygroundMode) handleDelete(query string) (*QueryResult, error) {
 	}, nil
 }
 
-func (p *PlaygroundMode) executeRaw(query string) (*QueryResult, error) {
-	result, err := db.ExecuteRaw(p.session.DB, query)
+func (p *PlaygroundMode) executeRaw(ctx context.Context, query string) (*QueryResult, error) {
+	result, err := db.ExecuteRaw(ctx, p.session.DB, query)
 	if err != nil {
 		return nil, err
 	}

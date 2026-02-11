@@ -1,12 +1,14 @@
 package modes
 
 import (
+	"context"
+
 	"github.com/Sahil-796/seeql/internal/db"
 	"github.com/Sahil-796/seeql/internal/schema"
 )
 
 type ExecutionMode interface {
-	Run(query string) (*QueryResult, error)
+	Run(ctx context.Context, query string) (*QueryResult, error)
 	GetSchema() (*schema.Schema, error)
 	Close() error
 }

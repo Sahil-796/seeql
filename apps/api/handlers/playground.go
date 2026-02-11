@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
+	"time"
 
 	"github.com/Sahil-796/seeql/internal/db"
 	"github.com/Sahil-796/seeql/internal/modes"
@@ -56,7 +58,11 @@ func ExecutePlaygroundQuery(c *gin.Context) {
 		return
 	}
 
-	result, err := mode.Run(req.SQL)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
+	defer cancel()
+
+	result, err := mode.Run(ctx, req.SQL)
+
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

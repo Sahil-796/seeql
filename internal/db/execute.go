@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"strings"
@@ -15,12 +16,8 @@ type ExecutionResult struct {
 	RowCount int
 }
 
-func ExecuteQuery(sqlDB *sql.DB, query string) (*ExecutionResult, error) {
-
-	rows, err := sqlDB.Query(query)
-	// rows has .Scan .Next and .Columns functions
-	// rows is jsut a ptr to the result after sqlite executes the query
-
+func ExecuteQuery(ctx context.Context, sqlDB *sql.DB, query string) (*ExecutionResult, error) {
+	rows, err := sqlDB.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("query execution failed: %w", err)
 	}
@@ -127,8 +124,8 @@ func InsertData(sqlDB *sql.DB, tableName string, rows []map[string]any) error {
 }
 
 // GetTableColumns returns the column names for a given table
-func GetTableColumns(sqlDB *sql.DB, tableName string) ([]string, error) {
-	rows, err := sqlDB.Query(fmt.Sprintf("SELECT * FROM %s LIMIT 0", tableName))
+func GetTableColumns(ctx context.Context, sqlDB *sql.DB, tableName string) ([]string, error) {
+	rows, err := sqlDB.QueryContext(ctx, fmt.Sprintf("SELECT * FROM %s LIMIT 0", tableName))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get table info: %w", err)
 	}
@@ -150,11 +147,7 @@ func AddColumn(sqlDB *sql.DB, tableName string, col *schema.ColumnSchema) error 
 	return err
 }
 
-
-
 // DIRECT .EXEC CALLS -----------------------------------------------------------
-
-
 
 // ExecuteInsert executes an INSERT statement and returns the number of affected rows
 func ExecuteInsert(sqlDB *sql.DB, query string) (int64, error) {
@@ -184,12 +177,12 @@ func ExecuteDelete(sqlDB *sql.DB, query string) (int64, error) {
 }
 
 // ExecuteRaw attempts to execute a query as a SELECT, or falls back to Exec if it fails
-func ExecuteRaw(sqlDB *sql.DB, query string) (*ExecutionResult, error) {
+func ExecuteRaw(ctx context.Context, sqlDB *sql.DB, query string) (*ExecutionResult, error) {
 	// Try as SELECT first
-	result, err := ExecuteQuery(sqlDB, query)
+	result, err := ExecuteQuery(ctx, sqlDB, query)
 	if err != nil {
 		// Fall back to Exec for DML statements
-		execResult, execErr := sqlDB.Exec(query)
+		execResult, execErr := sqlDB.ExecContext(ctx, query)
 		if execErr != nil {
 			return nil, err
 		}

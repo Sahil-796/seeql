@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/Sahil-796/seeql/internal/modes"
 	"github.com/gin-gonic/gin"
@@ -35,7 +37,11 @@ func QuickRun(c *gin.Context) {
 			continue
 		}
 
-		result, err := mode.Run(stmt)
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
+
+		result, err := mode.Run(ctx, stmt)
+		cancel()
+
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
