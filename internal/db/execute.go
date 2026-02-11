@@ -149,3 +149,48 @@ func AddColumn(sqlDB *sql.DB, tableName string, col *schema.ColumnSchema) error 
 	_, err := sqlDB.Exec(query)
 	return err
 }
+
+// ExecuteInsert executes an INSERT statement and returns the number of affected rows
+func ExecuteInsert(sqlDB *sql.DB, query string) (int64, error) {
+	result, err := sqlDB.Exec(query)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+// ExecuteUpdate executes an UPDATE statement and returns the number of affected rows
+func ExecuteUpdate(sqlDB *sql.DB, query string) (int64, error) {
+	result, err := sqlDB.Exec(query)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+// ExecuteDelete executes a DELETE statement and returns the number of affected rows
+func ExecuteDelete(sqlDB *sql.DB, query string) (int64, error) {
+	result, err := sqlDB.Exec(query)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+// ExecuteRaw attempts to execute a query as a SELECT, or falls back to Exec if it fails
+func ExecuteRaw(sqlDB *sql.DB, query string) (*ExecutionResult, error) {
+	// Try as SELECT first
+	result, err := ExecuteQuery(sqlDB, query)
+	if err != nil {
+		// Fall back to Exec for DML statements
+		execResult, execErr := sqlDB.Exec(query)
+		if execErr != nil {
+			return nil, err
+		}
+		rowsAffected, _ := execResult.RowsAffected()
+		return &ExecutionResult{
+			RowCount: int(rowsAffected),
+		}, nil
+	}
+	return result, nil
+}
