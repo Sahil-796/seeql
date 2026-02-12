@@ -2,11 +2,12 @@ package modes
 
 import (
 	"context"
-
+	"fmt"
 	"github.com/Sahil-796/seeql/internal/db"
 	"github.com/Sahil-796/seeql/internal/parser"
 	"github.com/Sahil-796/seeql/internal/schema"
 	"vitess.io/vitess/go/vt/sqlparser"
+	"github.com/go-playground/validator/v10"
 )
 
 type PlaygroundMode struct {
@@ -51,6 +52,11 @@ func (p *PlaygroundMode) handleCreateTable(ctx context.Context, stmt *sqlparser.
 		Name:    parsedDDL.TableName,
 		Columns: make([]schema.ColumnSchema, len(parsedDDL.Columns)),
 	}
+	
+	if err :=  schema.Validate.Struct(tableSchema); err != nil {
+        validationErrors := err.(validator.ValidationErrors)
+        return nil, fmt.Errorf("invalid table schema: %s", validationErrors[0].Error())
+    }
 
 	for i, col := range parsedDDL.Columns {
 		tableSchema.Columns[i] = schema.ColumnSchema{
