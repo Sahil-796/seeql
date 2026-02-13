@@ -15,8 +15,6 @@ func Setup(r *gin.Engine) {
 	}
 	handlers.SessionManager = db.NewSessionManager(dataDir)
 
-	r.POST("/infer", handlers.InferSchema)
-	r.POST("/generate", handlers.GenerateData)
 	r.POST("/quick-run", handlers.QuickRun)
 
 	r.POST("/playground/session", handlers.CreateSession)

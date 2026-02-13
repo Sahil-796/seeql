@@ -1,110 +1,129 @@
-# Seeql
+# seeql
 
-Seeql is a powerful SQL playground and schema visualizer that allows developers to prototype queries, visualize schemas, and generate mock data instantly. It features a unique "Quick Mode" that infers database schemas directly from SELECT queries and populates them with realistic mock data using an in-memory SQLite engine.
+A SQL playground that generates mock data from queries. No database setup, no schema definition—just write SQL and see results instantly.
+
+```
+SELECT u.name, o.amount 
+FROM users u 
+JOIN orders o ON u.id = o.user_id
+
+→ Generates users table with fake data
+→ Generates orders table with fake data  
+→ Executes your query
+→ Returns results in ~50ms
+```
+
+## What It Does
+
+**Quick Mode**: Write any SELECT query. seeql parses it, infers the schema from column names and JOINs, generates realistic mock data, and executes the query against an in-memory SQLite database.
+
+**Playground Mode**: Full persistent session with CREATE TABLE, INSERT, UPDATE, DELETE. Like a temporary database that lives for your session.
+
+## Why
+
+Testing SQL without real data is frustrating. Setting up fixtures is tedious. seeql lets you prototype queries instantly with realistic data inferred from your column names (`email` → realistic emails, `created_at` → timestamps, `price` → decimal amounts).
+
+## Quick Start
+
+### Backend
+
+```bash
+go mod download
+go run apps/api/main.go
+```
+
+API runs on `localhost:8080`.
+
+### Frontend
+
+```bash
+cd apps/web
+npm install
+npm run dev
+```
+
+App runs on `localhost:3000`.
+
+## API
+
+### POST /quick-run
+
+Instant query execution with auto-generated data.
+
+```bash
+curl -X POST http://localhost:8080/quick-run \
+  -H "Content-Type: application/json" \
+  -d '{"sql": "SELECT name, email FROM users WHERE active = 1"}'
+```
+
+Response:
+```json
+{
+  "columns": ["name", "email"],
+  "rows": [
+    {"name": "Alice Smith", "email": "alice@example.com"},
+    {"name": "Bob Jones", "email": "bob@company.org"}
+  ],
+  "row_count": 2
+}
+```
+
+### POST /playground/session
+
+Create a persistent session.
+
+```bash
+# Create session
+SESSION=$(curl -s -X POST http://localhost:8080/playground/session | jq -r '.session_id')
+
+# Create table
+curl -X POST http://localhost:8080/playground/session/$SESSION/execute \
+  -d '{"sql": "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)"}'
+
+# Insert
+curl -X POST http://localhost:8080/playground/session/$SESSION/execute \
+  -d '{"sql": "INSERT INTO users (name) VALUES ('"'"'Alice'"'"')"}'
+
+# Query
+curl -X POST http://localhost:8080/playground/session/$SESSION/execute \
+  -d '{"sql": "SELECT * FROM users"}'
+
+# Cleanup
+curl -X DELETE http://localhost:8080/playground/session/$SESSION
+```
+
+## How It Works
+
+1. **Parse**: Vitess SQL parser extracts tables, columns, JOINs
+2. **Infer**: Column names hint at types (`email`→TEXT, `is_active`→BOOLEAN, `created_at`→TIMESTAMP)
+3. **Generate**: gofakeit creates realistic data matching those types
+4. **Execute**: SQLite in-memory database runs your query
+5. **Return**: JSON with columns, rows, and inferred schema
 
 ## Features
 
-- **Quick Mode**: Instantly visualize data relationships by just writing a `SELECT` query. The system infers the schema, generates mock data, and executes the query.
-- **Full Playground**: Define your schema with `CREATE TABLE` statements and run complex queries against a persistent in-memory session.
-- **Schema Visualization**: Visual representation of tables, columns, and relationships.
-- **Mock Data Generation**: Automatic generation of realistic data using `gofakeit` based on column names and types.
-- **SQL Parsing**: Robust SQL parsing using `vitess` to understand complex queries and joins.
+- **Smart type inference**: 100+ column name patterns (price, url, uuid, phone, etc.)
+- **JOIN support**: Foreign key relationships inferred from `_id` suffixes
+- **Aggregations**: COUNT, SUM, AVG, MIN, MAX
+- **Multi-statement**: Run multiple SQL statements separated by semicolons
+- **Timeouts**: 30-second query limit to prevent runaway queries
 
-## Architecture
+## Stack
 
+- **Backend**: Go, Gin, Vitess (SQL parsing), SQLite, gofakeit
+- **Frontend**: Next.js 16, React 19, TypeScript, Tailwind CSS v4
 
-## Tech Stack
+## Development
 
-### Backend
-- **Language**: Go 1.25+
-- **Framework**: Gin Web Framework
-- **SQL Parser**: Vitess
-- **Database**: SQLite (In-Memory via `go-sqlite3`)
-- **Data Generation**: gofakeit
+```bash
+# Run tests
+go test ./...
 
-### Frontend
-- **Framework**: Next.js 16 (React 19)
-- **Styling**: Tailwind CSS v4
-- **Language**: TypeScript
-- **Tooling**: Biome
+# Run backend only
+go run apps/api/main.go
 
-## Getting Started
-
-### Prerequisites
-- Go 1.25 or higher
-- Node.js or Bun
-
-### Backend Setup
-
-1. Install Go dependencies:
-   ```bash
-   go mod download
-   ```
-
-2. Start the backend server:
-   ```bash
-   go run apps/api/main.go
-   ```
-   The server will start on `http://localhost:8080`.
-
-### Frontend Setup
-
-1. Navigate to the web directory:
-   ```bash
-   cd apps/web
-   ```
-
-2. Install dependencies:
-   ```bash
-   npm install
-   # or
-   bun install
-   ```
-
-3. Start the development server:
-   ```bash
-   npm run dev
-   # or
-   bun dev
-   ```
-   The application will be available at `http://localhost:3000`.
-
-## API Endpoints
-
-### `POST /api/quick-run`
-Analyzes a SELECT query, infers schema, generates data, and returns results.
-
-**Request:**
-```json
-{
-  "query": "SELECT u.name, o.total FROM users u JOIN orders o ON u.id = o.user_id"
-}
-```
-
-**Response:**
-```json
-{
-  "inferredSchema": {
-    "tables": ["users", "orders"],
-    "columns": { ... },
-    "relationships": { ... }
-  },
-  "previewData": [ ... ],
-  "sqlToExecute": "SELECT ..."
-}
-```
-
-### `POST /api/schema`
-Defines the database schema using CREATE statements.
-
-**Request:**
-```json
-{
-  "createStatements": [
-    "CREATE TABLE users (id INT PRIMARY KEY, name TEXT)",
-    "CREATE TABLE orders (id INT, user_id INT, total DECIMAL)"
-  ]
-}
+# Run frontend only
+cd apps/web && npm run dev
 ```
 
 ## License

@@ -285,3 +285,59 @@ curl -X DELETE http://localhost:8080/playground/session/$SESSION
 4. **Cloudflare**: Add DDoS protection and CDN
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed instructions.
+
+---
+
+## System Design Improvements (NEW)
+
+### High Priority (Must-Haves)
+
+#### 1. Rate Limiting
+- [ ] Implement token bucket rate limiting per IP
+- [ ] Apply to `/quick-run` and playground endpoints
+- [ ] Different limits: `/quick-run` (stricter), playground session ops (relaxed)
+- [ ] Return 429 with Retry-After header
+
+#### 2. Query Complexity Guardrails
+- [ ] Max execution time (already have 30s timeout, but needs enforcement)
+- [ ] Max rows returned per query (e.g., 1000)
+- [ ] Block dangerous patterns: `generate_series`, recursive CTEs without limits
+- [ ] Query size limits (max characters)
+
+#### 3. Resource Quotas Per Session
+- [ ] Max tables per playground session (e.g., 50)
+- [ ] Max rows stored across all tables (e.g., 10000)
+- [ ] Max session lifetime (e.g., 1 hour)
+- [ ] Cleanup old sessions automatically
+
+### Medium Priority (Nice-to-Haves)
+
+#### 4. Request Deduplication
+- [ ] Prevent double-clicks from executing same query twice
+- [ ] In-flight request tracking with SQL hash as key
+- [ ] Return existing result if same query is already running
+
+#### 5. Circuit Breaker Pattern
+- [ ] Track SQLite failure rates
+- [ ] Open circuit after N failures in time window
+- [ ] Fast-fail with 503 when circuit is open
+- [ ] Auto-recovery after cooldown period
+
+### Low Priority (Observability)
+
+#### 6. Prometheus Metrics
+- [ ] Query execution duration histogram
+- [ ] Error rates by type (syntax, timeout, runtime)
+- [ ] Active sessions gauge
+- [ ] Rate limit hits counter
+
+#### 7. Graceful Shutdown
+- [ ] Drain in-flight requests on SIGTERM
+- [ ] Save session state before shutdown (optional)
+- [ ] Kubernetes-friendly shutdown handling
+
+### Notes
+
+- **No job queues needed** - queries are real-time, user waits for result
+- Caching not needed - responses are always different (random data generation)
+- Focus on protecting SQLite from abuse and resource exhaustion
