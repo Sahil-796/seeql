@@ -32,3 +32,8 @@ func applyLimit(query string) string {
 
 	return query + " LIMIT 1000"
 }
+
+func countJoinsRegex(query string) int {
+    joinRegex := regexp.MustCompile(`(?i)\bJOIN\b`)
+    return len(joinRegex.FindAllString(query, -1))
+}

@@ -22,10 +22,14 @@ func ExecuteQuery(ctx context.Context, sqlDB *sql.DB, query string) (*ExecutionR
 		return nil, err
 	}
 	query = applyLimit(query)
-	
+
 	rows, err := sqlDB.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("query execution failed: %w", err)
+	}
+
+	if countJoinsRegex(query) > 10 {
+		return nil, fmt.Errorf("query contains too many joins")
 	}
 
 	defer rows.Close()
