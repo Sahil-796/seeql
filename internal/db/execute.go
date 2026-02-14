@@ -17,6 +17,12 @@ type ExecutionResult struct {
 }
 
 func ExecuteQuery(ctx context.Context, sqlDB *sql.DB, query string) (*ExecutionResult, error) {
+
+	if err := validateLength(query); err != nil {
+		return nil, err
+	}
+	query = applyLimit(query)
+	
 	rows, err := sqlDB.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("query execution failed: %w", err)
