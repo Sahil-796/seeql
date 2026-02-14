@@ -105,6 +105,11 @@ func (p *PlaygroundMode) handleSelect(ctx context.Context, query string) (*Query
 }
 
 func (p *PlaygroundMode) handleInsert(ctx context.Context, query string) (*QueryResult, error) {
+	// validations
+	if err := db.ValidateQuery(query); err != nil {
+		return nil, err
+	}
+
 	result, err := p.session.DB.ExecContext(ctx, query)
 	if err != nil {
 		return nil, err
@@ -119,6 +124,11 @@ func (p *PlaygroundMode) handleInsert(ctx context.Context, query string) (*Query
 }
 
 func (p *PlaygroundMode) handleUpdate(ctx context.Context, query string) (*QueryResult, error) {
+	// validations
+	if err := db.ValidateQuery(query); err != nil {
+		return nil, err
+	}
+
 	result, err := p.session.DB.ExecContext(ctx, query)
 	if err != nil {
 		return nil, err
@@ -133,6 +143,11 @@ func (p *PlaygroundMode) handleUpdate(ctx context.Context, query string) (*Query
 }
 
 func (p *PlaygroundMode) handleDelete(ctx context.Context, query string) (*QueryResult, error) {
+	// validations
+	if err := db.ValidateQuery(query); err != nil {
+		return nil, err
+	}
+
 	result, err := p.session.DB.ExecContext(ctx, query)
 	if err != nil {
 		return nil, err

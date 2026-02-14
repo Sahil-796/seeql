@@ -71,6 +71,18 @@ Seeql is a SQL testing/debugging tool with two modes:
   - `CloseSession(id)` → Close and cleanup session
   - `CleanupOldSessions(maxAge)` → Remove inactive sessions
   - `getDBPath()` → Returns file path for session database
+- [x] **guardrails.go**: Query protection and limits
+  - `ValidateQuery()` → Length validation + dangerous pattern blocking
+  - `ValidateSelectQuery()` → SELECT-specific validation with JOIN limits
+  - `AddRowLimit()` → Auto-adds LIMIT 1000
+  - `IsSingleStatement()` → Detects multi-statement attacks
+  - Blocks: PRAGMA, ATTACH, load_extension, randomblob, generate_series, UNION SELECT
+
+### Middleware Package (`apps/api/middleware/`)
+- [x] **limiter.go**: Per-IP rate limiting
+  - Token bucket algorithm
+  - Different limits per endpoint type
+  - IP detection with proxy support (X-Forwarded-For, X-Real-Ip)
 
 ### Modes Package (`internal/modes/`)
 - [x] **interface.go**: ExecutionMode interface
@@ -86,6 +98,7 @@ Seeql is a SQL testing/debugging tool with two modes:
   - **NEW**: Context timeout support
   - **NEW**: Multi-statement support (split by semicolons)
   - **NEW**: CREATE TABLE statement support
+  - **NEW**: Table count limit enforcement
   - `GetSchema()` → Returns cached schema
   - `Close()` → Closes sqlDB connection
 - [x] **quick_test.go**: Integration tests for QuickMode
@@ -99,21 +112,23 @@ Seeql is a SQL testing/debugging tool with two modes:
   - `handleUpdate()` → Execute UPDATE → Return rows affected
   - `handleDelete()` → Execute DELETE → Return rows affected
   - `executeRaw()` → Fallback execution for unknown statements
+  - **NEW**: Table count limit enforcement
   - `GetSchema()` → Returns current session schema
   - `Close()` → Closes session database
 
 ### API Handlers (`apps/api/handlers/`)
 - [x] **health.go**: `GET /health` → Status OK
 - [x] **health_test.go**: Tests for health endpoint
-- [x] **schema.go**: `POST /infer` → Parse SQL → Return schema
+- [x] **schema.go**: `POST /infer` → Parse SQL → Return schema (unused but kept)
 - [x] **schema_test.go**: Tests for schema endpoint
-- [x] **generate.go**: `POST /generate` → Parse → Schema → Generate data → Return data
+- [x] **generate.go**: `POST /generate` → Parse → Schema → Generate data → Return data (unused but kept)
 - [x] **generate_test.go**: Tests for generate endpoint
 - [x] **quick_run.go**: `POST /quick-run` (fully implemented)
   - Request: `{ "sql": "..." }`
   - **NEW**: Context timeout (30 seconds)
   - **NEW**: Multi-statement support (statements separated by `;`)
   - **NEW**: CREATE TABLE support - users can define explicit schemas
+  - **NEW**: Single-statement validation (blocks multi-statement attacks)
   - Uses `modes.NewMode()` → `mode.Run(ctx, query)` → Returns QueryResult
   - Error handling: 400 for bad request, 500 for internal errors
 - [x] **quick_run_test.go**: Integration tests for quick-run
@@ -125,69 +140,82 @@ Seeql is a SQL testing/debugging tool with two modes:
   - Uses SessionManager for persistence
 
 ### Routes (`apps/api/routes/`)
-- [x] **routes.go**: Setup routes
-  - `POST /infer`, `POST /generate`, `POST /quick-run`
-  - `POST /playground/session`
-  - `DELETE /playground/session/:id`
-  - `POST /playground/session/:id/execute`
-  - `GET /health`
+- [x] **routes.go**: Setup routes with rate limiting
+  - `POST /quick-run` (with expensive rate limit)
+  - `POST /playground/session` (with lenient rate limit)
+  - `DELETE /playground/session/:id` (with lenient rate limit)
+  - `POST /playground/session/:id/execute` (with standard rate limit)
+  - `GET /health` (no rate limit)
 
 ### Main Application (`apps/api/`)
 - [x] **main.go**: Gin server on :8080
 - [x] **CORS configured** for localhost:3000, 5173, 4173
+- [x] **Rate limiting middleware** applied per endpoint
+
+---
 
 ## Recently Completed ✅
 
-### 1. ✅ Context Timeouts (NEW)
-**Files**: All execution functions in `internal/db/`, `internal/modes/`, `apps/api/handlers/`
+### 1. ✅ Rate Limiting
+**Files**: `apps/api/middleware/limiter.go`, `apps/api/routes/routes.go`
 
-**Changes**:
-- All DB operations now accept `context.Context`
-- Handlers create contexts with 30-second timeout
-- Prevents hanging queries and resource exhaustion
+- Per-IP token bucket rate limiting
+- Different limits: quick-run (5/min), playground execute (10/min), session mgmt (30/min)
+- Proxy-aware IP detection (X-Forwarded-For, X-Real-Ip)
 
-```go
-// Handler
-ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
-defer cancel()
-result, err := mode.Run(ctx, query)
-```
+### 2. ✅ Query Guardrails
+**Files**: `internal/db/guardrails.go`, `internal/db/execute.go`
 
-### 2. ✅ PlaygroundMode Complete (NEW)
-**Status**: Fully implemented and working
+**Protections:**
+- Query length limit: 10KB
+- Max JOINs: 10 per query
+- Auto-add LIMIT 1000 to SELECTs
+- Blocks dangerous patterns: PRAGMA, ATTACH, load_extension, randomblob, generate_series, UNION SELECT
+- Blocks multi-statement attacks (semicolon injection)
 
-**Features**:
-- Full CRUD support: CREATE TABLE, SELECT, INSERT, UPDATE, DELETE
-- Session-based persistence (file-based SQLite)
-- Schema tracking across multiple queries
-- Context timeout support
-- RESTful API endpoints
+### 3. ✅ Resource Quotas
+**Files**: `internal/modes/quick.go`, `internal/modes/playground.go`
 
-**API Endpoints**:
-```bash
-# Create session
-POST /playground/session
-# Returns: { "session_id": "uuid", "created_at": "..." }
+- Max tables per session: 50
+- Enforced in both QuickMode and PlaygroundMode
 
-# Execute query
-POST /playground/session/:id/execute
-# Body: { "sql": "SELECT * FROM users" }
-# Returns: QueryResult with columns, rows, schema
+### 4. ✅ Multi-Statement Attack Prevention
+**Files**: `apps/api/handlers/quick_run.go`
 
-# Close session
-DELETE /playground/session/:id
-```
+- QuickRun now rejects queries containing semicolons
+- Prevents attacks like: `DROP TABLE users; SELECT * FROM orders`
 
-### 3. ✅ Schema Extraction from DDL
-**Files**: `internal/modes/playground.go`
+---
 
-Uses `parser.ExtractSchemaFromDDL()` to convert parsed CREATE TABLE statements to schema.TableSchema, avoiding confusing [0] indexing.
+## Future Improvements (For Later Consideration)
 
-### 4. ✅ Clean Architecture
-- Package `db`: All database operations with context support
-- Package `modes`: High-level orchestration
-- Package `parser`: SQL parsing (no DB dependencies)
-- Package `schema`: Schema definitions
+### Medium Priority
+
+#### Request Deduplication
+- Prevent double-clicks from executing same query twice
+- In-flight request tracking with SQL hash as key
+- Return existing result if same query is already running
+- **Note**: Frontend already has button disable on click, so this is backend safety net only
+
+#### Circuit Breaker Pattern
+- Track SQLite failure rates
+- Open circuit after N failures in time window
+- Fast-fail with 503 when circuit is open
+- Auto-recovery after cooldown period
+- **Note**: Only needed if seeing SQLite failures in production
+
+### Low Priority (Observability)
+
+#### Prometheus Metrics
+- Query execution duration histogram
+- Error rates by type (syntax, timeout, runtime)
+- Active sessions gauge
+- Rate limit hits counter
+
+#### Graceful Shutdown
+- Drain in-flight requests on SIGTERM
+- Save session state before shutdown (optional)
+- Kubernetes-friendly shutdown handling
 
 ---
 
@@ -203,16 +231,6 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for Azure Container Apps + Redis setup.
 ```bash
 # Health check
 curl http://localhost:8080/health
-
-# Infer schema
-curl -X POST http://localhost:8080/infer \
-  -H "Content-Type: application/json" \
-  -d '{"sql": "SELECT id, name, email FROM users"}'
-
-# Generate data
-curl -X POST http://localhost:8080/generate \
-  -H "Content-Type: application/json" \
-  -d '{"sql": "SELECT id, name FROM users"}'
 
 # Full execution
 curl -X POST http://localhost:8080/quick-run \
@@ -262,6 +280,8 @@ curl -X DELETE http://localhost:8080/playground/session/$SESSION
 - ✅ CREATE TABLE support
 - ✅ Multi-statement execution
 - ✅ Context timeouts
+- ✅ Rate limiting
+- ✅ Query guardrails
 
 ### PlaygroundMode
 - ✅ Full CRUD support
@@ -269,75 +289,25 @@ curl -X DELETE http://localhost:8080/playground/session/$SESSION
 - ✅ Schema tracking
 - ✅ Context timeouts
 - ✅ RESTful API
+- ✅ Rate limiting
+- ✅ Query guardrails
+- ✅ Table count limits
 
 ### Infrastructure
 - ✅ Request context timeouts (30 seconds)
 - ✅ Clean package separation
+- ✅ Per-IP rate limiting
+- ✅ Query complexity guardrails
+- ✅ Resource quotas
+- ✅ Multi-statement attack prevention
 - ✅ Ready for containerized deployment with Redis
 
 ---
 
-## Next Steps (Optional)
+## Next Steps
 
-1. **Redis Integration**: Replace in-memory session map with Redis for stateless containers
-2. **Azure Deployment**: Deploy to Azure Container Apps with Azure Cache for Redis
-3. **Custom Domain**: Use Namecheap free domain via GitHub Student
-4. **Cloudflare**: Add DDoS protection and CDN
-
-See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed instructions.
-
----
-
-## System Design Improvements (NEW)
-
-### High Priority (Must-Haves)
-
-#### 1. Rate Limiting
-- [ ] Implement token bucket rate limiting per IP
-- [ ] Apply to `/quick-run` and playground endpoints
-- [ ] Different limits: `/quick-run` (stricter), playground session ops (relaxed)
-- [ ] Return 429 with Retry-After header
-
-#### 2. Query Complexity Guardrails
-- [ ] Max execution time (already have 30s timeout, but needs enforcement)
-- [ ] Max rows returned per query (e.g., 1000)
-- [ ] Block dangerous patterns: `generate_series`, recursive CTEs without limits
-- [ ] Query size limits (max characters)
-
-#### 3. Resource Quotas Per Session
-- [ ] Max tables per playground session (e.g., 50)
-- [ ] Max rows stored across all tables (e.g., 10000)
-- [ ] Max session lifetime (e.g., 1 hour)
-- [ ] Cleanup old sessions automatically
-
-### Medium Priority (Nice-to-Haves)
-
-#### 4. Request Deduplication
-- [ ] Prevent double-clicks from executing same query twice
-- [ ] In-flight request tracking with SQL hash as key
-- [ ] Return existing result if same query is already running
-
-#### 5. Circuit Breaker Pattern
-- [ ] Track SQLite failure rates
-- [ ] Open circuit after N failures in time window
-- [ ] Fast-fail with 503 when circuit is open
-- [ ] Auto-recovery after cooldown period
-
-### Low Priority (Observability)
-
-#### 6. Prometheus Metrics
-- [ ] Query execution duration histogram
-- [ ] Error rates by type (syntax, timeout, runtime)
-- [ ] Active sessions gauge
-- [ ] Rate limit hits counter
-
-#### 7. Graceful Shutdown
-- [ ] Drain in-flight requests on SIGTERM
-- [ ] Save session state before shutdown (optional)
-- [ ] Kubernetes-friendly shutdown handling
-
-### Notes
-
-- **No job queues needed** - queries are real-time, user waits for result
-- Caching not needed - responses are always different (random data generation)
-- Focus on protecting SQLite from abuse and resource exhaustion
+1. **Code Review**: Audit entire codebase for dead code and simplification opportunities
+2. **Redis Integration**: Replace in-memory session map with Redis for stateless containers
+3. **Azure Deployment**: Deploy to Azure Container Apps with Azure Cache for Redis
+4. **Custom Domain**: Use Namecheap free domain via GitHub Student
+5. **Cloudflare**: Add DDoS protection and CDN

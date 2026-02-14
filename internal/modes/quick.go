@@ -8,7 +8,6 @@ import (
 	"github.com/Sahil-796/seeql/internal/db"
 	"github.com/Sahil-796/seeql/internal/generator"
 	"github.com/Sahil-796/seeql/internal/schema"
-	_ "github.com/mattn/go-sqlite3"
 )
 
 type QuickMode struct {
