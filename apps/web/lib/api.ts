@@ -4,6 +4,7 @@ import type {
   PlaygroundExecuteRequest,
   CreateSessionResponse,
   SessionSchemaResponse,
+  SessionInfoResponse,
   HealthResponse,
 } from "./types";
 
@@ -100,6 +101,15 @@ export const api = {
     sessionId: string
   ): Promise<SessionSchemaResponse> => {
     return fetchApi<SessionSchemaResponse>(`/playground/session/${sessionId}/schema`, {
+      method: "GET",
+    });
+  },
+
+  /**
+   * Playground: Get session info (check if exists)
+   */
+  getSession: async (sessionId: string): Promise<SessionInfoResponse> => {
+    return fetchApi<SessionInfoResponse>(`/playground/session/${sessionId}`, {
       method: "GET",
     });
   },

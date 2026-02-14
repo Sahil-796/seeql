@@ -65,6 +65,13 @@ export interface SessionSchemaResponse {
   schema: Schema;
 }
 
+export interface SessionInfoResponse {
+  session_id: string;
+  created_at: string;
+  last_used: string;
+  table_count: number;
+}
+
 export interface HealthResponse {
   status: string;
 }

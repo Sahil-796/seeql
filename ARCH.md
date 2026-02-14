@@ -97,6 +97,13 @@ SessionManager.CloseSession(id)
   ├── os.Remove(dbPath) [cleanup file]
   └── delete(sessions, id)
 
+GET /playground/session/:id
+  ↓
+handlers.GetSession()
+  ↓
+SessionManager.GetSession()
+  └── Return session metadata [id, created_at, last_used, table_count]
+
 GET /playground/session/:id/schema
   ↓
 handlers.GetSessionSchema()
@@ -104,6 +111,25 @@ handlers.GetSessionSchema()
 SessionManager.GetSession()
   └── Return session.Schema [all tables in session]
 ```
+
+### Session Info Flow (`GET /playground/session/:id`)
+
+```
+Client (check if session exists)
+  ↓
+GET /playground/session/:id
+  ↓
+handlers.GetSession()
+  ├── SessionManager.GetSession(id)
+  └── Return {
+        session_id: "uuid",
+        created_at: "...",
+        last_used: "...",
+        table_count: 5
+      }
+```
+
+**Use Case:** Check if session is still valid before operations, show session metadata in UI
 
 ### Session Schema Flow (`GET /playground/session/:id/schema`)
 
