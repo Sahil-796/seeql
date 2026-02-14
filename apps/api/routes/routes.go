@@ -2,10 +2,13 @@ package routes
 
 import (
 	"os"
+	"time"
 
 	"github.com/Sahil-796/seeql/apps/api/handlers"
+	"github.com/Sahil-796/seeql/apps/api/middleware"
 	"github.com/Sahil-796/seeql/internal/db"
 	"github.com/gin-gonic/gin"
+	"golang.org/x/time/rate"
 )
 
 func Setup(r *gin.Engine) {
@@ -15,11 +18,13 @@ func Setup(r *gin.Engine) {
 	}
 	handlers.SessionManager = db.NewSessionManager(dataDir)
 
-	r.POST("/quick-run", handlers.QuickRun)
 
-	r.POST("/playground/session", handlers.CreateSession)
-	r.DELETE("/playground/session/:id", handlers.CloseSession)
-	r.POST("/playground/session/:id/execute", handlers.ExecutePlaygroundQuery)
+	r.POST("/quick-run", middleware.RateLimitMiddleware(rate.Every(12*time.Second), 2), handlers.QuickRun)
+
+	r.POST("/playground/session", middleware.RateLimitMiddleware(rate.Every(2*time.Second), 5), handlers.CreateSession)
+	r.DELETE("/playground/session/:id", middleware.RateLimitMiddleware(rate.Every(2*time.Second), 5), handlers.CloseSession)
+
+	r.POST("/playground/session/:id/execute", middleware.RateLimitMiddleware(rate.Every(6*time.Second), 3), handlers.ExecutePlaygroundQuery)
 
 	r.GET("/health", handlers.Health)
 }
