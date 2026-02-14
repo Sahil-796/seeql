@@ -352,7 +352,7 @@ export default function PlaygroundPage() {
     setError(null);
 
     try {
-      const response = await api.execute(fullSql);
+      const response = await api.quickRun(fullSql);
       setResult(response);
       if (response.error) {
         setError(response.error);

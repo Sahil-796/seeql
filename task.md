@@ -258,7 +258,10 @@ curl -X POST http://localhost:8080/playground/session/$SESSION/execute \
   -H "Content-Type: application/json" \
   -d '{"sql": "SELECT * FROM users"}'
 
-# 5. Close session
+# 5. Get session schema (all tables)
+curl http://localhost:8080/playground/session/$SESSION/schema
+
+# 6. Close session
 curl -X DELETE http://localhost:8080/playground/session/$SESSION
 ```
 

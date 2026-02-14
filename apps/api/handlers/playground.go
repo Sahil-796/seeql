@@ -70,3 +70,18 @@ func ExecutePlaygroundQuery(c *gin.Context) {
 
 	c.JSON(http.StatusOK, result)
 }
+
+func GetSessionSchema(c *gin.Context) {
+	sessionID := c.Param("id")
+
+	session, err := SessionManager.GetSession(sessionID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"session_id": session.ID,
+		"schema":     session.Schema,
+	})
+}

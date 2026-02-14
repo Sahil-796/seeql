@@ -37,37 +37,32 @@ export interface Schema {
 
 // ============ API Request Types ============
 
-export interface InferRequest {
+export interface QuickRunRequest {
   sql: string;
 }
 
-export interface GenerateRequest {
-  sql: string;
-  rows_per_table?: number;
-}
-
-export interface ExecuteRequest {
+export interface PlaygroundExecuteRequest {
   sql: string;
 }
 
 // ============ API Response Types ============
 
-export interface InferResponse {
-  schema?: Schema;
-  error?: string;
-}
-
-export interface GenerateResponse {
-  data?: Record<string, Record<string, unknown>[]>;
-  error?: string;
-}
-
-export interface ExecuteResponse {
+export interface QueryResult {
   columns?: string[];
   rows?: Record<string, unknown>[];
   row_count?: number;
   schema?: Schema;
   error?: string;
+}
+
+export interface CreateSessionResponse {
+  session_id: string;
+  created_at: string;
+}
+
+export interface SessionSchemaResponse {
+  session_id: string;
+  schema: Schema;
 }
 
 export interface HealthResponse {

@@ -96,7 +96,34 @@ SessionManager.CloseSession(id)
   ├── session.DB.Close()
   ├── os.Remove(dbPath) [cleanup file]
   └── delete(sessions, id)
+
+GET /playground/session/:id/schema
+  ↓
+handlers.GetSessionSchema()
+  ↓
+SessionManager.GetSession()
+  └── Return session.Schema [all tables in session]
 ```
+
+### Session Schema Flow (`GET /playground/session/:id/schema`)
+
+```
+Client (page refresh / load dashboard)
+  ↓
+GET /playground/session/:id/schema
+  ↓
+handlers.GetSessionSchema()
+  ├── SessionManager.GetSession(id)
+  └── Return {
+        session_id: "uuid",
+        schema: {
+          tables: [...],        // All tables in session
+          relationships: [...]
+        }
+      }
+```
+
+**Use Case:** Dashboard shows all tables on initial load without running a query
 
 ## Package Structure
 

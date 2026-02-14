@@ -1,10 +1,9 @@
 import type {
-  InferRequest,
-  InferResponse,
-  GenerateRequest,
-  GenerateResponse,
-  ExecuteRequest,
-  ExecuteResponse,
+  QuickRunRequest,
+  QueryResult,
+  PlaygroundExecuteRequest,
+  CreateSessionResponse,
+  SessionSchemaResponse,
   HealthResponse,
 } from "./types";
 
@@ -52,41 +51,56 @@ export const api = {
   },
 
   /**
-   * Infer schema from a SQL query
+   * Quick-run: Execute SQL query with auto-generated mock data
    */
-  inferSchema: async (sql: string): Promise<InferResponse> => {
-    const request: InferRequest = { sql };
-    return fetchApi<InferResponse>("/infer", {
+  quickRun: async (sql: string): Promise<QueryResult> => {
+    const request: QuickRunRequest = { sql };
+    return fetchApi<QueryResult>("/quick-run", {
       method: "POST",
       body: JSON.stringify(request),
     });
   },
 
   /**
-   * Generate mock data for a SQL query
+   * Playground: Create a new session
    */
-  generateData: async (
-    sql: string,
-    rowsPerTable: number = 10
-  ): Promise<GenerateResponse> => {
-    const request: GenerateRequest = {
-      sql,
-      rows_per_table: rowsPerTable,
-    };
-    return fetchApi<GenerateResponse>("/generate", {
+  createSession: async (): Promise<CreateSessionResponse> => {
+    return fetchApi<CreateSessionResponse>("/playground/session", {
+      method: "POST",
+    });
+  },
+
+  /**
+   * Playground: Close a session
+   */
+  closeSession: async (sessionId: string): Promise<{ message: string }> => {
+    return fetchApi<{ message: string }>(`/playground/session/${sessionId}`, {
+      method: "DELETE",
+    });
+  },
+
+  /**
+   * Playground: Execute SQL in a session
+   */
+  executePlayground: async (
+    sessionId: string,
+    sql: string
+  ): Promise<QueryResult> => {
+    const request: PlaygroundExecuteRequest = { sql };
+    return fetchApi<QueryResult>(`/playground/session/${sessionId}/execute`, {
       method: "POST",
       body: JSON.stringify(request),
     });
   },
 
   /**
-   * Execute SQL query (full pipeline: parse → schema → generate → execute)
+   * Playground: Get session schema (all tables)
    */
-  execute: async (sql: string): Promise<ExecuteResponse> => {
-    const request: ExecuteRequest = { sql };
-    return fetchApi<ExecuteResponse>("/execute", {
-      method: "POST",
-      body: JSON.stringify(request),
+  getSessionSchema: async (
+    sessionId: string
+  ): Promise<SessionSchemaResponse> => {
+    return fetchApi<SessionSchemaResponse>(`/playground/session/${sessionId}/schema`, {
+      method: "GET",
     });
   },
 };
