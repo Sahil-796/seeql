@@ -4,11 +4,6 @@ import (
 	"vitess.io/vitess/go/vt/sqlparser"
 )
 
-type TableSchema struct {
-	Name    string
-	Columns []string
-}
-
 func ExtractTables(stmt sqlparser.Statement) map[string]string {
 	aliases := make(map[string]string)
 	sqlparser.Walk(func(node sqlparser.SQLNode) (bool, error) {
