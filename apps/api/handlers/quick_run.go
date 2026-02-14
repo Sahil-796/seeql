@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sahil-796/seeql/internal/db"
 	"github.com/Sahil-796/seeql/internal/modes"
 	"github.com/gin-gonic/gin"
 )
@@ -18,6 +19,11 @@ func QuickRun(c *gin.Context) {
 	var req RunRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if !db.IsSingleStatement(req.SQL) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "multiple statements are not allowed in quick-run mode"})
 		return
 	}
 

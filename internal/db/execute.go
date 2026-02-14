@@ -17,19 +17,17 @@ type ExecutionResult struct {
 }
 
 func ExecuteQuery(ctx context.Context, sqlDB *sql.DB, query string) (*ExecutionResult, error) {
-
-	if err := validateLength(query); err != nil {
+	// Validate SELECT-specific query (includes length, dangerous patterns, JOIN count)
+	if err := ValidateSelectQuery(query); err != nil {
 		return nil, err
 	}
-	query = applyLimit(query)
+
+	// Add LIMIT if not present
+	query = AddRowLimit(query)
 
 	rows, err := sqlDB.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("query execution failed: %w", err)
-	}
-
-	if countJoinsRegex(query) > 10 {
-		return nil, fmt.Errorf("query contains too many joins")
 	}
 
 	defer rows.Close()
@@ -161,6 +159,9 @@ func AddColumn(sqlDB *sql.DB, tableName string, col *schema.ColumnSchema) error 
 
 // ExecuteInsert executes an INSERT statement and returns the number of affected rows
 func ExecuteInsert(sqlDB *sql.DB, query string) (int64, error) {
+	if err := ValidateQuery(query); err != nil {
+		return 0, err
+	}
 	result, err := sqlDB.Exec(query)
 	if err != nil {
 		return 0, err
@@ -170,6 +171,9 @@ func ExecuteInsert(sqlDB *sql.DB, query string) (int64, error) {
 
 // ExecuteUpdate executes an UPDATE statement and returns the number of affected rows
 func ExecuteUpdate(sqlDB *sql.DB, query string) (int64, error) {
+	if err := ValidateQuery(query); err != nil {
+		return 0, err
+	}
 	result, err := sqlDB.Exec(query)
 	if err != nil {
 		return 0, err
@@ -179,6 +183,9 @@ func ExecuteUpdate(sqlDB *sql.DB, query string) (int64, error) {
 
 // ExecuteDelete executes a DELETE statement and returns the number of affected rows
 func ExecuteDelete(sqlDB *sql.DB, query string) (int64, error) {
+	if err := ValidateQuery(query); err != nil {
+		return 0, err
+	}
 	result, err := sqlDB.Exec(query)
 	if err != nil {
 		return 0, err

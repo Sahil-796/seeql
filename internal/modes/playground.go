@@ -6,8 +6,8 @@ import (
 	"github.com/Sahil-796/seeql/internal/db"
 	"github.com/Sahil-796/seeql/internal/parser"
 	"github.com/Sahil-796/seeql/internal/schema"
-	"vitess.io/vitess/go/vt/sqlparser"
 	"github.com/go-playground/validator/v10"
+	"vitess.io/vitess/go/vt/sqlparser"
 )
 
 type PlaygroundMode struct {
@@ -43,6 +43,10 @@ func (p *PlaygroundMode) Run(ctx context.Context, query string) (*QueryResult, e
 }
 
 func (p *PlaygroundMode) handleCreateTable(ctx context.Context, stmt *sqlparser.CreateTable) (*QueryResult, error) {
+	if len(p.session.Schema.Tables) >= db.MaxTablesPerSession {
+		return nil, fmt.Errorf("maximum table limit reached (%d tables)", db.MaxTablesPerSession)
+	}
+
 	parsedDDL, err := parser.ExtractSchemaFromDDL(stmt)
 	if err != nil {
 		return nil, err
@@ -52,11 +56,11 @@ func (p *PlaygroundMode) handleCreateTable(ctx context.Context, stmt *sqlparser.
 		Name:    parsedDDL.TableName,
 		Columns: make([]schema.ColumnSchema, len(parsedDDL.Columns)),
 	}
-	
-	if err :=  schema.Validate.Struct(tableSchema); err != nil {
-        validationErrors := err.(validator.ValidationErrors)
-        return nil, fmt.Errorf("invalid table schema: %s", validationErrors[0].Error())
-    }
+
+	if err := schema.Validate.Struct(tableSchema); err != nil {
+		validationErrors := err.(validator.ValidationErrors)
+		return nil, fmt.Errorf("invalid table schema: %s", validationErrors[0].Error())
+	}
 
 	for i, col := range parsedDDL.Columns {
 		tableSchema.Columns[i] = schema.ColumnSchema{

@@ -30,6 +30,10 @@ func (q *QuickMode) Run(ctx context.Context, query string) (*QueryResult, error)
 		return nil, err
 	}
 
+	if len(newSchema.Tables) > db.MaxTablesPerSession {
+		return nil, fmt.Errorf("query references %d tables, maximum allowed is %d", len(newSchema.Tables), db.MaxTablesPerSession)
+	}
+
 	if !q.initialized {
 		sqlDB, err := sql.Open("sqlite3", ":memory:")
 		if err != nil {
@@ -40,6 +44,9 @@ func (q *QuickMode) Run(ctx context.Context, query string) (*QueryResult, error)
 		q.schema = newSchema
 	} else {
 		q.schema = mergeSchemas(q.schema, newSchema)
+		if len(q.schema.Tables) > db.MaxTablesPerSession {
+			return nil, fmt.Errorf("total tables (%d) exceeds maximum allowed (%d)", len(q.schema.Tables), db.MaxTablesPerSession)
+		}
 	}
 
 	gen := generator.New(q.schema)
