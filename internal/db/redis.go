@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -27,6 +28,13 @@ func GetRedis() *redis.Client {
 
 func GetContext() context.Context {
 	return ctx
+}
+
+func PingRedis() error {
+	if redisClient == nil {
+		return fmt.Errorf("redis client not initialized")
+	}
+	return redisClient.Ping(ctx).Err()
 }
 
 func StoreSession(sessionID string, sessionData *Session) error {

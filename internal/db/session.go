@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/Sahil-796/seeql/internal/schema"
@@ -125,4 +126,33 @@ func (sm *SessionManager) getDBPath(sessionID string) string {
 
 func timeNow() int64 {
 	return time.Now().Unix()
+}
+
+func (sm *SessionManager) CleanupOrphanedDBs() error {
+	entries, err := os.ReadDir(sm.dataDir)
+	if err != nil {
+		return fmt.Errorf("failed to read data directory: %w", err)
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".db") {
+			continue
+		}
+
+		sessionID := strings.TrimSuffix(entry.Name(), ".db")
+
+		// Check if session exists in Redis
+		_, err := GetSessionFromRedis(sessionID)
+		if err != nil {
+			// Session not found in Redis, delete the orphaned file
+			dbPath := sm.getDBPath(sessionID)
+			if removeErr := os.Remove(dbPath); removeErr != nil {
+				fmt.Printf("Failed to remove orphaned DB %s: %v\n", sessionID, removeErr)
+			} else {
+				fmt.Printf("Cleaned up orphaned DB: %s\n", sessionID)
+			}
+		}
+	}
+
+	return nil
 }
