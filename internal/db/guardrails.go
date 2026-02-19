@@ -7,12 +7,12 @@ import (
 )
 
 // this file contains mostly guardrails for SQL queries
-// 
 const (
-	MaxQueryLength      = 10000 // 10KB
-	MaxRowsPerQuery     = 1000
-	MaxJoinsPerQuery    = 10
-	MaxTablesPerSession = 50 // Maximum tables allowed per session/playground
+	MaxQueryLength          = 10000 // 10KB
+	MaxRowsPerQuery         = 1000
+	MaxJoinsPerQuery        = 10
+	MaxAggregationsPerQuery = 20
+	MaxTablesPerSession     = 50 
 )
 
 var (
@@ -31,8 +31,9 @@ var (
 		regexp.MustCompile(`(?i);\s*UPDATE\s+`),          // Multi-statement injection
 	}
 
-	limitRegex = regexp.MustCompile(`(?i)\bLIMIT\s+\d+`)
-	joinRegex  = regexp.MustCompile(`(?i)\bJOIN\b`)
+	limitRegex       = regexp.MustCompile(`(?i)\bLIMIT\s+\d+`)
+	joinRegex        = regexp.MustCompile(`(?i)\bJOIN\b`)
+	aggregationRegex = regexp.MustCompile(`(?i)\b(COUNT|SUM|AVG|MIN|MAX)\s*\(`)
 )
 
 func ValidateQuery(query string) error {
@@ -57,6 +58,11 @@ func ValidateSelectQuery(query string) error {
 	joins := len(joinRegex.FindAllString(query, -1))
 	if joins > MaxJoinsPerQuery {
 		return fmt.Errorf("query contains %d JOINs, maximum allowed is %d", joins, MaxJoinsPerQuery)
+	}
+
+	aggregations := len(aggregationRegex.FindAllString(query, -1))
+	if aggregations > MaxAggregationsPerQuery {
+		return fmt.Errorf("query contains %d aggregations, maximum allowed is %d", aggregations, MaxAggregationsPerQuery)
 	}
 
 	return nil
