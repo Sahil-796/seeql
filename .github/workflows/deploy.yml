@@ -1,7 +1,7 @@
 name: Build and Deploy to Azure
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]
   workflow_dispatch:
 jobs:
   build:
