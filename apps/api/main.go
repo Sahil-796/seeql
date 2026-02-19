@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"time"
+ "github.com/joho/godotenv"
 
 	"github.com/Sahil-796/seeql/internal/db"
 	"github.com/Sahil-796/seeql/apps/api/routes"
@@ -11,6 +12,7 @@ import (
 )
 
 func main() {
+	godotenv.Load()
 	redisAddr := os.Getenv("REDIS_ADDR")
 	if redisAddr == "" {
 		redisAddr = "localhost:6379"
