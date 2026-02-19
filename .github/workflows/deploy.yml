@@ -1,10 +1,8 @@
 name: Build and Deploy to Azure
-
 on:
   push:
     branches: [ main ]
   workflow_dispatch:
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -20,6 +18,9 @@ jobs:
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
     
+    - name: Register Microsoft.App provider
+      run: az provider register -n Microsoft.App --wait
+
     - name: Azure Container Registry Login
       run: |
         az acr login --name ${{ secrets.ACR_NAME }}
