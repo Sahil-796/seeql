@@ -1,6 +1,6 @@
 module github.com/Sahil-796/seeql
 
-go 1.25.5
+go 1.23
 
 require (
 	github.com/brianvoe/gofakeit/v7 v7.14.0
