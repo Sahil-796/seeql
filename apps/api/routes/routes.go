@@ -23,7 +23,7 @@ func Setup(r *gin.Engine) {
 	r.POST("/playground/session", middleware.RateLimitMiddleware(rate.Every(2*time.Second), 5), handlers.CreateSession)
 	r.DELETE("/playground/session/:id", middleware.RateLimitMiddleware(rate.Every(2*time.Second), 5), handlers.CloseSession)
 
-	r.POST("/playground/session/:id/execute", middleware.RateLimitMiddleware(rate.Every(100*time.Millisecond), 30), handlers.ExecutePlaygroundQuery)
+	r.POST("/playground/session/:id/execute", middleware.RateLimitMiddleware(rate.Every(6*time.Second), 3), handlers.ExecutePlaygroundQuery)
 	r.GET("/playground/session/:id", middleware.RateLimitMiddleware(rate.Every(2*time.Second), 5), handlers.GetSession)
 	r.GET("/playground/session/:id/schema", middleware.RateLimitMiddleware(rate.Every(2*time.Second), 5), handlers.GetSessionSchema)
 
