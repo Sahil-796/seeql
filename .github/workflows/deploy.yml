@@ -36,4 +36,4 @@ jobs:
           --container-registry-url https://${{ secrets.ACR_NAME }}.azurecr.io \
           --container-registry-user ${{ secrets.ACR_USERNAME }} \
           --container-registry-password ${{ secrets.ACR_PASSWORD }} \
-          --container-image-name ${{ secrets.ACR_NAME }}.azurecr.io/seeql:${{ github.sha }}
+          --container-image-name ${{ secrets.ACR_NAME }}.azurecr.io/seeql:latest
