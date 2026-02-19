@@ -29,7 +29,7 @@ func QuickRun(c *gin.Context) {
 
 	statements := splitStatements(req.SQL)
 
-	mode, err := modes.NewMode(modes.ModeQuick, nil)
+	mode, err := modes.NewMode(modes.ModeQuick, nil, nil)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

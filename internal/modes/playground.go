@@ -11,12 +11,14 @@ import (
 )
 
 type PlaygroundMode struct {
-	session *db.Session
+	session        *db.Session
+	sessionManager *db.SessionManager
 }
 
-func NewPlaygroundMode(session *db.Session) *PlaygroundMode {
+func NewPlaygroundMode(session *db.Session, sessionManager *db.SessionManager) *PlaygroundMode {
 	return &PlaygroundMode{
-		session: session,
+		session:        session,
+		sessionManager: sessionManager,
 	}
 }
 
@@ -83,6 +85,11 @@ func (p *PlaygroundMode) handleCreateTable(ctx context.Context, stmt *sqlparser.
 
 	// Schema is guaranteed initialized by NewSession constructor
 	p.session.Schema.Tables = append(p.session.Schema.Tables, *tableSchema)
+
+	// persist schema changes to Redis
+	if err := p.sessionManager.UpdateSession(p.session); err != nil {
+		return nil, fmt.Errorf("failed to update session: %w", err)
+	}
 
 	return &QueryResult{
 		RowCount: 0,

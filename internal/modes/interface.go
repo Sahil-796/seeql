@@ -25,12 +25,12 @@ const (
 	ModePlayground string = "playground"
 )
 
-func NewMode(mode string, session *db.Session) (ExecutionMode, error) {
+func NewMode(mode string, session *db.Session, sessionManager *db.SessionManager) (ExecutionMode, error) {
 	switch mode {
 	case ModeQuick:
 		return NewQuickMode(), nil
 	case ModePlayground:
-		return NewPlaygroundMode(session), nil
+		return NewPlaygroundMode(session, sessionManager), nil
 	default:
 		return NewQuickMode(), nil
 	}

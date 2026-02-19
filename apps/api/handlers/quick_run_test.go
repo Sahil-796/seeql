@@ -271,7 +271,7 @@ func TestQuickRun_SelectQuery(t *testing.T) {
 
 	router := setupRouter()
 
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"sql": `SELECT username, email FROM users`,
 	}
 	body, _ := json.Marshal(payload)

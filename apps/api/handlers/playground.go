@@ -52,7 +52,7 @@ func ExecutePlaygroundQuery(c *gin.Context) {
 		return
 	}
 
-	mode, err := modes.NewMode(modes.ModePlayground, session)
+	mode, err := modes.NewMode(modes.ModePlayground, session, SessionManager)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
