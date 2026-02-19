@@ -31,7 +31,11 @@ jobs:
     
     - name: Deploy to Container App
       run: |
-        az containerapp update \
+        az containerapp create \
           --name seeql-app \
           --resource-group ${{ secrets.RESOURCE_GROUP }} \
-          --image ${{ secrets.ACR_NAME }}.azurecr.io/seeql:${{ github.sha }}
+          --image ${{ secrets.ACR_NAME }}.azurecr.io/seeql:${{ github.sha }} \
+          --environment seeql-env \
+          --registry-server ${{ secrets.ACR_NAME }}.azurecr.io \
+          --target-port 8080 \
+          --ingress external
