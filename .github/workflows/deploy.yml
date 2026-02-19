@@ -1,0 +1,39 @@
+name: Build and Deploy to Azure
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+    
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+    
+    - name: Azure Container Registry Login
+      run: |
+        az acr login --name ${{ secrets.ACR_NAME }}
+    
+    - name: Build and Push Image
+      run: |
+        docker build -t ${{ secrets.ACR_NAME }}.azurecr.io/seeql:${{ github.sha }} .
+        docker push ${{ secrets.ACR_NAME }}.azurecr.io/seeql:${{ github.sha }}
+        docker tag ${{ secrets.ACR_NAME }}.azurecr.io/seeql:${{ github.sha }} ${{ secrets.ACR_NAME }}.azurecr.io/seeql:latest
+        docker push ${{ secrets.ACR_NAME }}.azurecr.io/seeql:latest
+    
+    - name: Deploy to Container App
+      run: |
+        az containerapp update \
+          --name seeql-app \
+          --resource-group ${{ secrets.RESOURCE_GROUP }} \
+          --image ${{ secrets.ACR_NAME }}.azurecr.io/seeql:${{ github.sha }}

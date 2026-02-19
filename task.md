@@ -65,12 +65,18 @@ Seeql is a SQL testing/debugging tool with two modes:
   - `mapToSQLiteType()` → Converts semantic types to SQLite storage types
 - [x] **session.go**: Session management for PlaygroundMode
   - `Session` struct: ID, DB, Schema, CreatedAt, LastUsed
-  - `SessionManager`: Manages multiple sessions with file-based SQLite
-  - `CreateSession()` → Creates new session with UUID
-  - `GetSession(id)` → Retrieve session by ID
-  - `CloseSession(id)` → Close and cleanup session
-  - `CleanupOldSessions(maxAge)` → Remove inactive sessions
+  - `SessionManager`: Manages multiple sessions with Redis + file-based SQLite
+  - `CreateSession()` → Creates new session with UUID, stores metadata in Redis
+  - `GetSession(id)` → Retrieve session metadata from Redis, recreates DB connection
+  - `CloseSession(id)` → Close DB, cleanup file, delete from Redis
+  - `UpdateSession()` → Updates session metadata in Redis after schema changes
   - `getDBPath()` → Returns file path for session database
+- [x] **redis.go**: Redis client for session metadata storage
+  - `InitRedis(addr, password)` → Initialize Redis connection
+  - `GetRedis()` → Returns Redis client
+  - `StoreSession()` → Save session metadata with 24hr TTL
+  - `GetSessionFromRedis()` → Retrieve session by ID
+  - `DeleteSessionFromRedis()` → Remove session from Redis
 - [x] **guardrails.go**: Query protection and limits
   - `ValidateQuery()` → Length validation + dangerous pattern blocking
   - `ValidateSelectQuery()` → SELECT-specific validation with JOIN limits
@@ -151,39 +157,6 @@ Seeql is a SQL testing/debugging tool with two modes:
 - [x] **main.go**: Gin server on :8080
 - [x] **CORS configured** for localhost:3000, 5173, 4173
 - [x] **Rate limiting middleware** applied per endpoint
-
----
-
-## Recently Completed ✅
-
-### 1. ✅ Rate Limiting
-**Files**: `apps/api/middleware/limiter.go`, `apps/api/routes/routes.go`
-
-- Per-IP token bucket rate limiting
-- Different limits: quick-run (5/min), playground execute (10/min), session mgmt (30/min)
-- Proxy-aware IP detection (X-Forwarded-For, X-Real-Ip)
-
-### 2. ✅ Query Guardrails
-**Files**: `internal/db/guardrails.go`, `internal/db/execute.go`
-
-**Protections:**
-- Query length limit: 10KB
-- Max JOINs: 10 per query
-- Auto-add LIMIT 1000 to SELECTs
-- Blocks dangerous patterns: PRAGMA, ATTACH, load_extension, randomblob, generate_series, UNION SELECT
-- Blocks multi-statement attacks (semicolon injection)
-
-### 3. ✅ Resource Quotas
-**Files**: `internal/modes/quick.go`, `internal/modes/playground.go`
-
-- Max tables per session: 50
-- Enforced in both QuickMode and PlaygroundMode
-
-### 4. ✅ Multi-Statement Attack Prevention
-**Files**: `apps/api/handlers/quick_run.go`
-
-- QuickRun now rejects queries containing semicolons
-- Prevents attacks like: `DROP TABLE users; SELECT * FROM orders`
 
 ---
 
@@ -306,14 +279,14 @@ curl -X DELETE http://localhost:8080/playground/session/$SESSION
 - ✅ Query complexity guardrails
 - ✅ Resource quotas
 - ✅ Multi-statement attack prevention
-- ✅ Ready for containerized deployment with Redis
+- ✅ Redis integration for session storage (24hr TTL)
+- ✅ Environment-based Redis configuration
+- ✅ Ready for containerized deployment
 
 ---
 
 ## Next Steps
 
-1. **Code Review**: Audit entire codebase for dead code and simplification opportunities
-2. **Redis Integration**: Replace in-memory session map with Redis for stateless containers
-3. **Azure Deployment**: Deploy to Azure Container Apps with Azure Cache for Redis
-4. **Custom Domain**: Use Namecheap free domain via GitHub Student
-5. **Cloudflare**: Add DDoS protection and CDN
+1. **Azure Deployment**: Deploy to Azure Container Apps with Azure Cache for Redis
+2. **Custom Domain**: Use Namecheap free domain via GitHub Student
+3. **Cloudflare**: Add DDoS protection and CDN
