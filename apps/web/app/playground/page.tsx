@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { DataTable } from "@/components";
 import { api } from "@/lib/api";
 import {
@@ -307,6 +307,7 @@ export default function PlaygroundPage() {
   const [error, setError] = useState<string | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [isBundleCopied, setIsBundleCopied] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const pathname = usePathname();
 
   const sqlBundle = useMemo(() => {
@@ -337,6 +338,15 @@ export default function PlaygroundPage() {
       .join(";\n\n");
   }, [sqlBundle, derivedQuery]);
 
+  useEffect(() => {
+    return () => {
+      if (!sessionId) {
+        return;
+      }
+      void api.closeSession(sessionId).catch(() => {});
+    };
+  }, [sessionId]);
+
   const handleRun = async () => {
     if (!derivedQuery) return;
 
@@ -346,17 +356,24 @@ export default function PlaygroundPage() {
       derivedQuery.replace(/;$/, ""),
     ].filter(Boolean);
 
-    const fullSql = `${statements.join(";\n")};`;
-
     setIsRunning(true);
     setError(null);
 
     try {
-      const response = await api.quickRun(fullSql);
-      setResult(response);
-      if (response.error) {
-        setError(response.error);
+      if (sessionId) {
+        await api.closeSession(sessionId).catch(() => {});
       }
+
+      const created = await api.createSession();
+      setSessionId(created.session_id);
+
+      let lastResult: QueryResult | null = null;
+      for (const statement of statements) {
+        const response = await api.executePlayground(created.session_id, statement);
+        lastResult = response;
+      }
+
+      setResult(lastResult);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to run query");
     } finally {

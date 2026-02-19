@@ -57,7 +57,7 @@ export interface QueryResult {
 
 export interface CreateSessionResponse {
   session_id: string;
-  created_at: string;
+  created_at: number;
 }
 
 export interface SessionSchemaResponse {
@@ -67,8 +67,8 @@ export interface SessionSchemaResponse {
 
 export interface SessionInfoResponse {
   session_id: string;
-  created_at: string;
-  last_used: string;
+  created_at: number;
+  last_used: number;
   table_count: number;
 }
 
