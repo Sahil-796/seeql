@@ -17,9 +17,6 @@ jobs:
       uses: azure/login@v1
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
-    
-    - name: Register Microsoft.App provider
-      run: az provider register -n Microsoft.App --wait
 
     - name: Azure Container Registry Login
       run: |
