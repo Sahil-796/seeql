@@ -273,10 +273,10 @@ Parse (Vitess)
 Route by type
   ↓
 CREATE TABLE
-  ├── Parse DDL
+  ├── Parse DDL (columns, types, PK, inline REFERENCES, FOREIGN KEY constraints)
   ├── Validate table count
   ├── Execute CREATE TABLE
-  └── Store schema in session
+  └── Store schema in session (includes FK refs for UI display)
   ↓
 SELECT
   └── ExecuteQuery (with guardrails)
@@ -314,22 +314,31 @@ Return JSON
 
 ## Redis Integration Notes
 
-For horizontal scaling, sessions need external storage:
+Session metadata is stored in Redis for persistence across requests:
 
-**What to store in Redis:**
-- Session metadata: ID, CreatedAt, LastUsed, TableCount
-- Session schema: Table definitions (JSON)
-- **NOT** the DB connection (can't serialize)
+**Stored in Redis (24hr TTL):**
+```json
+{
+  "schema": { "tables": [...], "relationships": [...] },
+  "created_at": 1234567890,
+  "last_used": 1234567890
+}
+```
 
-**What stays in memory:**
-- Active sql.DB connections
-- Rate limiter state (or move to Redis too)
-
-**Session lookup flow with Redis:**
+**Session lookup flow:**
 ```
 GetSession(id)
-  ├── Check local map first (hot path)
-  ├── If miss: Fetch from Redis
+  ├── Fetch metadata from Redis
   ├── Reopen DB connection: sql.Open("sqlite3", path)
-  └── Cache in local map
+  ├── Set session.ID from key
+  └── Return session with active DB handle
+```
+
+**Schema persistence flow (on CREATE TABLE):**
+```
+handleCreateTable()
+  ├── Parse DDL (extracts columns, types, PK, FK)
+  ├── db.CreateTable() [SQLite]
+  ├── session.Schema.Tables = append(...)
+  └── sessionManager.UpdateSession() → StoreSession() → Redis SET
 ```

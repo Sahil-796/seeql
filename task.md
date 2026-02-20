@@ -25,6 +25,7 @@ Seeql is a SQL testing/debugging tool with two modes:
   - `ParseCreateTable(sql)` → parses CREATE TABLE
   - `ExtractSchemaFromDDL(createTable)` → ParsedDDL
   - `IsCreateTable(sql)` → bool
+  - **NEW**: Foreign key parsing (inline REFERENCES and table-level FOREIGN KEY constraints)
 - [x] **parser_test.go**: Basic test coverage
 - [x] **columns_test.go**: Tests for column extraction with/without aliases
 - [x] **aggregations_test.go**: Tests for aggregation detection
@@ -74,8 +75,8 @@ Seeql is a SQL testing/debugging tool with two modes:
 - [x] **redis.go**: Redis client for session metadata storage
   - `InitRedis(addr, password)` → Initialize Redis connection
   - `GetRedis()` → Returns Redis client
-  - `StoreSession()` → Save session metadata with 24hr TTL
-  - `GetSessionFromRedis()` → Retrieve session by ID
+  - `StoreSession()` → Save session metadata with 24hr TTL (marshals struct directly for consistent JSON keys)
+  - `GetSessionFromRedis()` → Retrieve session by ID (sets session.ID from Redis key)
   - `DeleteSessionFromRedis()` → Remove session from Redis
 - [x] **guardrails.go**: Query protection and limits
   - `ValidateQuery()` → Length validation + dangerous pattern blocking
@@ -271,6 +272,13 @@ curl -X DELETE http://localhost:8080/playground/session/$SESSION
 - ✅ Rate limiting
 - ✅ Query guardrails
 - ✅ Table count limits
+- ✅ Foreign key parsing from DDL (inline REFERENCES + table-level FOREIGN KEY)
+
+### Frontend (apps/web/)
+- ✅ CodeMirror 6 SQL editor with syntax highlighting
+- ✅ SQL validation (parentheses, quotes, keywords, statement-specific checks)
+- ✅ Run button disabled when SQL has validation errors
+- ✅ Foreign key display in schema sidebar (blue badges showing FK → table)
 
 ### Infrastructure
 - ✅ Request context timeouts (30 seconds)
@@ -282,6 +290,7 @@ curl -X DELETE http://localhost:8080/playground/session/$SESSION
 - ✅ Redis integration for session storage (24hr TTL)
 - ✅ Environment-based Redis configuration
 - ✅ Ready for containerized deployment
+- ✅ Fixed Redis JSON key mismatch (session persistence bug)
 
 ---
 
