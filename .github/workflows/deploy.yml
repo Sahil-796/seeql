@@ -43,4 +43,7 @@ jobs:
           az containerapp update \
             --name seeql-container \
             --resource-group seeql-rg \
-            --image seeqlregistry.azurecr.io/seeql:${{ github.sha }}
+            --image seeqlregistry.azurecr.io/seeql:${{ github.sha }} \
+            --registry-server seeqlregistry.azurecr.io \
+            --registry-username $ACR_USERNAME \
+            --registry-password $ACR_PASSWORD
