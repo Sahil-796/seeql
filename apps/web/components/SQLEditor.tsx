@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useCallback, useMemo } from "react";
-import { EditorView, keymap, placeholder as placeholderExt, lineNumbers, highlightActiveLine, highlightActiveLineGutter } from "@codemirror/view";
+import { useEffect, useRef, useMemo, useState } from "react";
+import { EditorView, keymap, placeholder as placeholderExt, lineNumbers, highlightActiveLine, highlightActiveLineGutter, drawSelection } from "@codemirror/view";
 import { EditorState, Compartment } from "@codemirror/state";
 import { sql, SQLite } from "@codemirror/lang-sql";
 import { oneDark } from "@codemirror/theme-one-dark";
@@ -9,6 +9,13 @@ import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { autocompletion, closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { linter, type Diagnostic, lintGutter } from "@codemirror/lint";
 import { syntaxHighlighting, defaultHighlightStyle, bracketMatching } from "@codemirror/language";
+import { useTheme } from "@/lib/theme-context";
+
+// Helper to get system color preference
+function getSystemDarkMode(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+}
 
 interface SQLEditorProps {
   value: string;
@@ -19,7 +26,6 @@ interface SQLEditorProps {
   className?: string;
   disabled?: boolean;
   autoFocus?: boolean;
-  theme?: "light" | "dark";
   tables?: { name: string; columns: string[] }[];
 }
 
@@ -170,9 +176,11 @@ const lightTheme = EditorView.theme({
   ".cm-content": {
     caretColor: "#000",
     fontFamily: "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, monospace",
+    padding: "8px 0",
   },
-  ".cm-cursor": {
+  ".cm-cursor, .cm-dropCursor": {
     borderLeftColor: "#000",
+    borderLeftWidth: "2px",
   },
   ".cm-activeLine": {
     backgroundColor: "rgba(0, 0, 0, 0.04)",
@@ -191,6 +199,9 @@ const lightTheme = EditorView.theme({
   "&.cm-focused .cm-selectionBackground, .cm-selectionBackground": {
     backgroundColor: "rgba(0, 100, 200, 0.15)",
   },
+  ".cm-selectionMatch": {
+    backgroundColor: "rgba(0, 100, 200, 0.1)",
+  },
   ".cm-lintRange-error": {
     backgroundImage: "none",
     borderBottom: "2px wavy #ef4444",
@@ -207,6 +218,12 @@ const lightTheme = EditorView.theme({
     padding: "8px 12px",
     fontSize: "13px",
   },
+  ".cm-focused": {
+    outline: "none",
+  },
+  "&.cm-focused": {
+    outline: "none",
+  },
 });
 
 // Dark theme extension
@@ -218,9 +235,11 @@ const darkTheme = EditorView.theme({
   ".cm-content": {
     caretColor: "#fff",
     fontFamily: "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, monospace",
+    padding: "8px 0",
   },
-  ".cm-cursor": {
+  ".cm-cursor, .cm-dropCursor": {
     borderLeftColor: "#fff",
+    borderLeftWidth: "2px",
   },
   ".cm-activeLine": {
     backgroundColor: "rgba(255, 255, 255, 0.05)",
@@ -239,6 +258,9 @@ const darkTheme = EditorView.theme({
   "&.cm-focused .cm-selectionBackground, .cm-selectionBackground": {
     backgroundColor: "rgba(100, 150, 255, 0.2)",
   },
+  ".cm-selectionMatch": {
+    backgroundColor: "rgba(100, 150, 255, 0.15)",
+  },
   ".cm-lintRange-error": {
     backgroundImage: "none",
     borderBottom: "2px wavy #ef4444",
@@ -256,6 +278,12 @@ const darkTheme = EditorView.theme({
     fontSize: "13px",
     color: "#f3f4f6",
   },
+  ".cm-focused": {
+    outline: "none",
+  },
+  "&.cm-focused": {
+    outline: "none",
+  },
 });
 
 export function SQLEditor({
@@ -267,9 +295,30 @@ export function SQLEditor({
   className = "",
   disabled = false,
   autoFocus = false,
-  theme = "light",
   tables = [],
 }: SQLEditorProps) {
+  const { colorMode } = useTheme();
+  const [isDark, setIsDark] = useState(false);
+  
+  // Track effective dark mode (handles "system" mode and system changes)
+  useEffect(() => {
+    const updateDarkMode = () => {
+      if (colorMode === "system") {
+        setIsDark(getSystemDarkMode());
+      } else {
+        setIsDark(colorMode === "dark");
+      }
+    };
+    
+    updateDarkMode();
+    
+    if (colorMode === "system") {
+      const mq = window.matchMedia("(prefers-color-scheme: dark)");
+      mq.addEventListener("change", updateDarkMode);
+      return () => mq.removeEventListener("change", updateDarkMode);
+    }
+  }, [colorMode]);
+  
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const themeCompartment = useRef(new Compartment());
@@ -334,6 +383,7 @@ export function SQLEditor({
     const state = EditorState.create({
       doc: value,
       extensions: [
+        drawSelection(),
         lineNumbers(),
         highlightActiveLine(),
         highlightActiveLineGutter(),
@@ -345,7 +395,7 @@ export function SQLEditor({
         sqlLinter,
         sql({ dialect: SQLite, schema: sqlSchema }),
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
-        themeCompartment.current.of(theme === "dark" ? [oneDark, darkTheme] : [lightTheme]),
+        themeCompartment.current.of(isDark ? [oneDark, darkTheme] : [lightTheme]),
         readOnlyCompartment.current.of([
           EditorState.readOnly.of(disabled),
           EditorView.editable.of(!disabled),
@@ -387,11 +437,11 @@ export function SQLEditor({
     if (viewRef.current) {
       viewRef.current.dispatch({
         effects: themeCompartment.current.reconfigure(
-          theme === "dark" ? [oneDark, darkTheme] : [lightTheme]
+          isDark ? [oneDark, darkTheme] : [lightTheme]
         ),
       });
     }
-  }, [theme]);
+  }, [isDark]);
 
   // Update disabled state
   useEffect(() => {
