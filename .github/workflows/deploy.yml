@@ -38,12 +38,18 @@ jobs:
           docker push seeqlregistry.azurecr.io/seeql:${{ github.sha }}
           docker push seeqlregistry.azurecr.io/seeql:latest
 
+      - name: Configure ACR credentials on Container App
+        run: |
+          az containerapp registry set \
+            --name seeql-container \
+            --resource-group seeql-rg \
+            --server seeqlregistry.azurecr.io \
+            --username $ACR_USERNAME \
+            --password $ACR_PASSWORD
+
       - name: Deploy to Container App
         run: |
           az containerapp update \
             --name seeql-container \
             --resource-group seeql-rg \
-            --image seeqlregistry.azurecr.io/seeql:${{ github.sha }} \
-            --registry-server seeqlregistry.azurecr.io \
-            --registry-username $ACR_USERNAME \
-            --registry-password $ACR_PASSWORD
+            --image seeqlregistry.azurecr.io/seeql:${{ github.sha }}
