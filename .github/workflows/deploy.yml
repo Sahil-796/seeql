@@ -1,0 +1,40 @@
+name: Deploy to Azure Container Apps
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.SEEQLCONTAINER_AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.SEEQLCONTAINER_AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.SEEQLCONTAINER_AZURE_SUBSCRIPTION_ID }}
+
+      - name: Build and push image to ACR
+        run: |
+          az acr build \
+            --registry seeqlregistry \
+            --image seeql:${{ github.sha }} \
+            --image seeql:latest \
+            .
+
+      - name: Deploy to Container App
+        run: |
+          az containerapp update \
+            --name seeql-container \
+            --resource-group seeql-rg \
+            --image seeqlregistry.azurecr.io/seeql:${{ github.sha }}
