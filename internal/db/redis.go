@@ -38,11 +38,7 @@ func PingRedis() error {
 }
 
 func StoreSession(sessionID string, sessionData *Session) error {
-	jsonData, err := json.Marshal(map[string]any{
-		"Schema":    sessionData.Schema,
-		"CreatedAt": sessionData.CreatedAt,
-		"LastUsed":  sessionData.LastUsed,
-	})
+	jsonData, err := json.Marshal(sessionData)
 	if err != nil {
 		return err
 	}
@@ -60,6 +56,7 @@ func GetSessionFromRedis(sessionID string) (*Session, error) {
 	if err := json.Unmarshal([]byte(data), &session); err != nil {
 		return nil, err
 	}
+	session.ID = sessionID
 	return &session, nil
 }
 

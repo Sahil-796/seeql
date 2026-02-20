@@ -14,11 +14,11 @@ import (
 )
 
 type Session struct {
-	ID        string
-	DB        *sql.DB
-	Schema    *schema.Schema
-	CreatedAt int64 `json:"created_at"`
-	LastUsed  int64 `json:"last_used"`
+	ID        string         `json:"-"`
+	DB        *sql.DB        `json:"-"`
+	Schema    *schema.Schema `json:"schema"`
+	CreatedAt int64          `json:"created_at"`
+	LastUsed  int64          `json:"last_used"`
 }
 
 type SessionManager struct {
