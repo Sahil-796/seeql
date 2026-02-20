@@ -45,6 +45,7 @@ import {
   ResizableHandle,
 } from "@/components/ui/resizable";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
+import { SQLEditor } from "@/components/SQLEditor";
 import { cn } from "@/lib/utils";
 
 // Types
@@ -87,27 +88,8 @@ type QueryResult = {
   error?: string;
 };
 
-// Default tables
-const DEFAULT_TABLES: TableDef[] = [
-  {
-    id: "t-users",
-    name: "users",
-    columns: [
-      { id: "c-users-id", name: "id", type: "INTEGER", nullable: false, primary: true, unique: true },
-      { id: "c-users-name", name: "name", type: "TEXT", nullable: false, primary: false, unique: false },
-      { id: "c-users-email", name: "email", type: "EMAIL", nullable: false, primary: false, unique: true },
-    ],
-  },
-  {
-    id: "t-orders",
-    name: "orders",
-    columns: [
-      { id: "c-orders-id", name: "id", type: "INTEGER", nullable: false, primary: true, unique: true },
-      { id: "c-orders-user-id", name: "user_id", type: "INTEGER", nullable: false, primary: false, unique: false },
-      { id: "c-orders-total", name: "total", type: "FLOAT", nullable: false, primary: false, unique: false },
-    ],
-  },
-];
+// Default tables - start empty for fresh sessions
+const DEFAULT_TABLES: TableDef[] = [];
 
 // Utilities
 function createId(prefix: string) {
@@ -371,6 +353,7 @@ function TableCard({
   onAddColumn,
   onUpdateColumn,
   onRemoveColumn,
+  isCreated,
 }: {
   table: TableDef;
   onUpdate: (updater: (t: TableDef) => TableDef) => void;
@@ -378,26 +361,37 @@ function TableCard({
   onAddColumn: () => void;
   onUpdateColumn: (columnId: string, updater: (col: ColumnDef) => ColumnDef) => void;
   onRemoveColumn: (columnId: string) => void;
+  isCreated?: boolean;
 }) {
   return (
-    <Card className="overflow-hidden">
+    <Card className={cn("overflow-hidden", isCreated && "ring-2 ring-green-500/30")}>
       <CardHeader className="pb-3 bg-muted/30">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/10">
-              <TableIcon className="h-4 w-4 text-primary" />
+            <div className={cn("p-2 rounded-lg", isCreated ? "bg-green-500/10" : "bg-primary/10")}>
+              {isCreated ? (
+                <Check className="h-4 w-4 text-green-600" />
+              ) : (
+                <TableIcon className="h-4 w-4 text-primary" />
+              )}
             </div>
             <Input
               value={table.name}
               onChange={(e) => onUpdate((prev) => ({ ...prev, name: toIdentifier(e.target.value) }))}
               className="w-48 h-8 font-medium"
+              disabled={isCreated}
             />
             <Badge variant="secondary" className="text-xs">
               {table.columns.length} columns
             </Badge>
+            {isCreated && (
+              <Badge variant="outline" className="text-xs bg-green-500/10 text-green-600 border-green-500/30">
+                In Session
+              </Badge>
+            )}
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={onAddColumn}>
+            <Button variant="outline" size="sm" onClick={onAddColumn} disabled={isCreated}>
               <Plus className="h-3.5 w-3.5 mr-1.5" />
               Column
             </Button>
@@ -406,6 +400,7 @@ function TableCard({
               size="icon"
               className="h-8 w-8 text-muted-foreground hover:text-destructive"
               onClick={onRemove}
+              disabled={isCreated}
             >
               <Trash2 className="h-4 w-4" />
             </Button>
@@ -556,28 +551,71 @@ function ResultsTable({ result }: { result: QueryResult | null }) {
   );
 }
 
+// Log entry type
+type LogEntry = {
+  id: string;
+  type: "success" | "error" | "info";
+  message: string;
+  timestamp: Date;
+};
+
+// Session table type (from API schema)
+type SessionTable = {
+  name: string;
+  columns: {
+    name: string;
+    type: string;
+    is_primary?: boolean;
+    is_foreign?: boolean;
+    ref_table?: string;
+    ref_column?: string;
+  }[];
+};
+
 // Main Component
 export default function PlaygroundPage() {
   const [tables, setTables] = useState<TableDef[]>(DEFAULT_TABLES);
-  const [rowsByTable, setRowsByTable] = useState<Record<string, RowDef[]>>({
-    "t-users": [
-      { id: "1", name: "Jade Fisher", email: "jade@seeql.dev" },
-      { id: "2", name: "Rowan Park", email: "rowan@seeql.dev" },
-    ],
-    "t-orders": [
-      { id: "1", user_id: "1", total: "249.50" },
-      { id: "2", user_id: "2", total: "540.00" },
-    ],
-  });
+  const [rowsByTable, setRowsByTable] = useState<Record<string, RowDef[]>>({});
   const [rowsPerTable, setRowsPerTable] = useState(5);
-  const [query, setQuery] = useState("SELECT u.name, o.total FROM users u JOIN orders o ON u.id = o.user_id;");
+  const [query, setQuery] = useState("");
   const [result, setResult] = useState<QueryResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [isSessionLoading, setIsSessionLoading] = useState(false);
   const [activeDataTab, setActiveDataTab] = useState<string>(tables[0]?.id ?? "");
+  const [executionLog, setExecutionLog] = useState<LogEntry[]>([]);
+  const [sessionTables, setSessionTables] = useState<SessionTable[]>([]);
+  const [isQueryValid, setIsQueryValid] = useState(true);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+
+  const addLog = (type: LogEntry["type"], message: string) => {
+    setExecutionLog((prev) => [
+      ...prev,
+      { id: createId("log"), type, message, timestamp: new Date() },
+    ]);
+  };
+
+  const clearLog = () => {
+    setExecutionLog([]);
+    setSessionTables([]);
+  };
+
+  // Tables for SQL autocomplete
+  const editorTables = useMemo(() => {
+    return sessionTables.map((t) => ({
+      name: t.name,
+      columns: t.columns.map((c) => c.name),
+    }));
+  }, [sessionTables]);
+
+  // Handle validation changes from SQL editor
+  const handleValidationChange = (isValid: boolean, errors: string[]) => {
+    setIsQueryValid(isValid);
+    setValidationErrors(errors);
+  };
 
   const sqlBundle = useMemo(() => {
     const createStatements = tables.map(buildCreateTableSql);
@@ -605,33 +643,93 @@ export default function PlaygroundPage() {
     };
   }, [sessionId]);
 
-  const handleRun = async () => {
-    if (!derivedQuery) return;
-
-    const statements = [...sqlBundle.createStatements, ...sqlBundle.insertStatements, derivedQuery.replace(/;$/, "")].filter(
-      Boolean
-    );
-
-    setIsRunning(true);
+  const handleCreateSession = async () => {
+    setIsSessionLoading(true);
     setError(null);
+    clearLog();
 
     try {
+      // Close existing session if any
       if (sessionId) {
         await api.closeSession(sessionId).catch(() => {});
       }
 
+      // Create new session
       const created = await api.createSession();
       setSessionId(created.session_id);
+      setResult(null);
+      setSessionTables([]);
+      addLog("info", `Session started: ${created.session_id.slice(0, 8)}...`);
+      addLog("info", "Ready to run SQL. Use CREATE TABLE, INSERT, SELECT, etc.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create session");
+      setSessionId(null);
+    } finally {
+      setIsSessionLoading(false);
+    }
+  };
 
-      let lastResult: QueryResult | null = null;
-      for (const statement of statements) {
-        const response = await api.executePlayground(created.session_id, statement);
-        lastResult = response;
+  const handleEndSession = async () => {
+    if (!sessionId) return;
+
+    setIsSessionLoading(true);
+    setError(null);
+
+    try {
+      await api.closeSession(sessionId);
+      addLog("info", "Session ended.");
+      setSessionId(null);
+      setResult(null);
+      setSessionTables([]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to end session");
+    } finally {
+      setIsSessionLoading(false);
+    }
+  };
+
+  const handleRun = async () => {
+    if (!derivedQuery || !sessionId) return;
+
+    setIsRunning(true);
+    setError(null);
+
+    // Detect if this is a CREATE TABLE statement
+    const isCreateTable = derivedQuery.trim().toUpperCase().startsWith("CREATE TABLE");
+    const isInsert = derivedQuery.trim().toUpperCase().startsWith("INSERT");
+
+    try {
+      const response = await api.executePlayground(sessionId, derivedQuery.replace(/;$/, ""));
+      setResult(response);
+
+      // Update session tables from schema if returned
+      if (response.schema?.tables) {
+        setSessionTables(response.schema.tables.map((t) => ({
+          name: t.name,
+          columns: t.columns.map((c) => ({
+            name: c.name,
+            type: c.type,
+            is_primary: c.is_primary,
+            is_foreign: c.is_foreign,
+            ref_table: c.ref_table,
+            ref_column: c.ref_column,
+          })),
+        })));
       }
 
-      setResult(lastResult);
+      // Log appropriate message
+      if (isCreateTable) {
+        const tableCount = response.schema?.tables?.length ?? 0;
+        addLog("success", `Table created successfully! (${tableCount} table${tableCount !== 1 ? "s" : ""} in session)`);
+      } else if (isInsert) {
+        addLog("success", `Inserted ${response.row_count ?? 0} row(s)`);
+      } else {
+        addLog("success", `Query executed: ${response.row_count ?? 0} rows returned`);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to run query");
+      const errorMsg = err instanceof Error ? err.message : "Failed to run query";
+      setError(errorMsg);
+      addLog("error", `Query failed: ${errorMsg}`);
     } finally {
       setIsRunning(false);
     }
@@ -836,6 +934,41 @@ export default function PlaygroundPage() {
             <Badge variant="secondary" className="font-normal">Playground</Badge>
           </div>
           <div className="flex items-center gap-4">
+            {/* Session Controls */}
+            <div className="flex items-center gap-2">
+              {sessionId ? (
+                <>
+                  <Badge variant="outline" className="text-xs font-mono bg-green-500/10 text-green-600 border-green-500/30">
+                    Session Active
+                  </Badge>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleEndSession}
+                    disabled={isSessionLoading}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    {isSessionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4 mr-1" />}
+                    End Session
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Badge variant="outline" className="text-xs text-muted-foreground">
+                    No Session
+                  </Badge>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={handleCreateSession}
+                    disabled={isSessionLoading}
+                  >
+                    {isSessionLoading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Play className="h-4 w-4 mr-1" />}
+                    Start Session
+                  </Button>
+                </>
+              )}
+            </div>
             <ThemeSwitcher />
             <nav className="flex items-center gap-1">
               <Button variant="ghost" size="sm" asChild>
@@ -852,108 +985,151 @@ export default function PlaygroundPage() {
       {/* Main Content */}
       <main className="h-[calc(100vh-3.5rem)]">
         <ResizablePanelGroup direction="horizontal" className="h-full">
-          {/* Left Panel - Schema & Data */}
-          <ResizablePanel defaultSize={55} minSize={35}>
+          {/* Left Panel - Session Schema */}
+          <ResizablePanel defaultSize={35} minSize={25}>
             <div className="h-full overflow-auto p-6 space-y-6">
-              {/* Schema Builder Section */}
+              {/* Session Tables Section */}
               <section>
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <h2 className="text-lg font-semibold flex items-center gap-2">
                       <Database className="h-5 w-5" />
-                      Schema Builder
+                      Session Schema
                     </h2>
                     <p className="text-sm text-muted-foreground mt-0.5">
-                      Define your tables and columns
+                      {sessionId ? "Tables in this session" : "Start a session to create tables"}
                     </p>
                   </div>
-                  <Button onClick={addTable} size="sm">
-                    <Plus className="h-4 w-4 mr-1.5" />
-                    Add Table
-                  </Button>
+                  {sessionTables.length > 0 && (
+                    <Badge variant="secondary">{sessionTables.length} table{sessionTables.length !== 1 ? "s" : ""}</Badge>
+                  )}
                 </div>
-                <div className="space-y-4">
-                  {tables.map((table) => (
-                    <TableCard
-                      key={table.id}
-                      table={table}
-                      onUpdate={(updater) => updateTable(table.id, updater)}
-                      onRemove={() => removeTable(table.id)}
-                      onAddColumn={() => addColumn(table.id)}
-                      onUpdateColumn={(columnId, updater) => updateColumn(table.id, columnId, updater)}
-                      onRemoveColumn={(columnId) => removeColumn(table.id, columnId)}
-                    />
-                  ))}
-                </div>
-              </section>
 
-              {/* Seed Data Section */}
-              <section>
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h2 className="text-lg font-semibold flex items-center gap-2">
-                      <TableIcon className="h-5 w-5" />
-                      Seed Data
-                    </h2>
-                    <p className="text-sm text-muted-foreground mt-0.5">
-                      Generate or manually enter test data
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2">
-                      <Label className="text-sm text-muted-foreground whitespace-nowrap">Rows</Label>
-                      <Input
-                        type="number"
-                        min={1}
-                        max={25}
-                        value={rowsPerTable}
-                        onChange={(e) => setRowsPerTable(Math.min(25, Math.max(1, Number(e.target.value) || 1)))}
-                        className="w-16 h-8"
-                      />
-                    </div>
-                    <Button onClick={handleGenerateData} size="sm" disabled={isGenerating}>
-                      {isGenerating ? (
-                        <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-                      ) : (
-                        <Sparkles className="h-4 w-4 mr-1.5" />
-                      )}
-                      {isGenerating ? "Generating..." : "Auto-fill All"}
-                    </Button>
-                  </div>
-                </div>
-                {tables.length > 0 && (
-                  <Tabs value={activeDataTab} onValueChange={setActiveDataTab}>
-                    <TabsList className="mb-4">
-                      {tables.map((table) => (
-                        <TabsTrigger key={table.id} value={table.id} className="gap-1.5">
-                          {table.name}
-                          <Badge variant="outline" className="ml-1 text-[10px] px-1.5">
-                            {rowsByTable[table.id]?.length ?? 0}
-                          </Badge>
-                        </TabsTrigger>
-                      ))}
-                    </TabsList>
-                    {tables.map((table) => (
-                      <TabsContent key={table.id} value={table.id}>
-                        <DataPreviewTable
-                          table={table}
-                          rows={rowsByTable[table.id] ?? []}
-                          onUpdateRow={(rowIndex, colName, value) => updateRowValue(table.id, rowIndex, colName, value)}
-                          onRemoveRow={(rowIndex) => removeRow(table.id, rowIndex)}
-                          onAddRow={() => addRow(table.id)}
-                        />
-                      </TabsContent>
+                {!sessionId ? (
+                  <Card className="border-dashed">
+                    <CardContent className="p-6 text-center">
+                      <Database className="h-10 w-10 mx-auto mb-3 text-muted-foreground/50" />
+                      <p className="text-sm text-muted-foreground mb-4">
+                        No active session. Start a session to create tables and run queries.
+                      </p>
+                      <Button onClick={handleCreateSession} disabled={isSessionLoading}>
+                        {isSessionLoading ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Play className="h-4 w-4 mr-1.5" />}
+                        Start Session
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ) : sessionTables.length === 0 ? (
+                  <Card className="border-dashed">
+                    <CardContent className="p-6 text-center">
+                      <TableIcon className="h-10 w-10 mx-auto mb-3 text-muted-foreground/50" />
+                      <p className="text-sm text-muted-foreground mb-2">
+                        No tables yet. Run a CREATE TABLE statement.
+                      </p>
+                      <p className="text-xs text-muted-foreground font-mono">
+                        CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT);
+                      </p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="space-y-3">
+                    {sessionTables.map((table) => (
+                      <Card key={table.name} className="overflow-hidden">
+                        <CardHeader className="pb-2 bg-green-500/5 border-b border-green-500/20">
+                          <div className="flex items-center gap-3">
+                            <div className="p-1.5 rounded-md bg-green-500/10">
+                              <Check className="h-3.5 w-3.5 text-green-600" />
+                            </div>
+                            <span className="font-medium font-mono text-sm">{table.name}</span>
+                            <Badge variant="outline" className="text-xs ml-auto">
+                              {table.columns.length} col{table.columns.length !== 1 ? "s" : ""}
+                            </Badge>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="p-3">
+                          <div className="space-y-1">
+                            {table.columns.map((col) => (
+                              <div
+                                key={col.name}
+                                className="flex items-center gap-2 text-xs font-mono px-2 py-1 rounded bg-muted/50"
+                              >
+                                <span className={cn(
+                                  "font-medium",
+                                  col.is_primary && "text-amber-600",
+                                  col.is_foreign && !col.is_primary && "text-blue-600"
+                                )}>
+                                  {col.name}
+                                </span>
+                                <span className="text-muted-foreground">{col.type}</span>
+                                <div className="flex gap-1 ml-auto">
+                                  {col.is_primary && (
+                                    <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 bg-amber-500/10 border-amber-500/30">
+                                      PK
+                                    </Badge>
+                                  )}
+                                  {col.is_foreign && (
+                                    <Badge 
+                                      variant="outline" 
+                                      className="text-[10px] px-1 py-0 h-4 bg-blue-500/10 border-blue-500/30"
+                                      title={col.ref_table && col.ref_column ? `References ${col.ref_table}.${col.ref_column}` : "Foreign Key"}
+                                    >
+                                      FK{col.ref_table ? ` → ${col.ref_table}` : ""}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
                     ))}
-                  </Tabs>
+                  </div>
                 )}
               </section>
+
+              {/* Execution Log Section */}
+              {executionLog.length > 0 && (
+                <section>
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-semibold flex items-center gap-2">
+                      <Code className="h-5 w-5" />
+                      Execution Log
+                    </h2>
+                    <Button variant="ghost" size="sm" onClick={clearLog}>
+                      <X className="h-4 w-4 mr-1" />
+                      Clear
+                    </Button>
+                  </div>
+                  <Card>
+                    <CardContent className="p-3 max-h-48 overflow-auto">
+                      <div className="space-y-1.5 font-mono text-xs">
+                        {executionLog.map((entry) => (
+                          <div
+                            key={entry.id}
+                            className={cn(
+                              "flex items-start gap-2 px-2 py-1 rounded",
+                              entry.type === "success" && "bg-green-500/10 text-green-700",
+                              entry.type === "error" && "bg-red-500/10 text-red-700",
+                              entry.type === "info" && "bg-blue-500/10 text-blue-700"
+                            )}
+                          >
+                            <span className="text-muted-foreground shrink-0">
+                              {entry.timestamp.toLocaleTimeString()}
+                            </span>
+                            <span>{entry.message}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </section>
+              )}
             </div>
           </ResizablePanel>
 
           <ResizableHandle withHandle />
 
           {/* Right Panel - Query & Results */}
-          <ResizablePanel defaultSize={45} minSize={30}>
+          <ResizablePanel defaultSize={65} minSize={40}>
             <div className="h-full flex flex-col">
               {/* Query Section */}
               <div className="p-6 border-b space-y-4">
@@ -967,23 +1143,39 @@ export default function PlaygroundPage() {
                       {isCopied ? <Check className="h-4 w-4 mr-1.5" /> : <Copy className="h-4 w-4 mr-1.5" />}
                       {isCopied ? "Copied" : "Copy All"}
                     </Button>
-                    <Button size="sm" onClick={handleRun} disabled={isRunning}>
+                    <Button
+                      size="sm"
+                      onClick={handleRun}
+                      disabled={isRunning || !sessionId || !isQueryValid}
+                    >
                       <Play className="h-4 w-4 mr-1.5" />
                       {isRunning ? "Running..." : "Run Query"}
                     </Button>
                   </div>
                 </div>
-                <div className="relative">
-                  <textarea
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="SELECT * FROM users;"
-                    className="w-full h-32 p-4 rounded-lg border bg-muted/30 text-sm font-mono resize-none focus:outline-none focus:ring-2 focus:ring-ring"
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Your query runs after the auto-generated CREATE TABLE and INSERT statements.
-                </p>
+                <SQLEditor
+                  value={query}
+                  onChange={setQuery}
+                  onSubmit={handleRun}
+                  onValidationChange={handleValidationChange}
+                  placeholder="CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT);"
+                  disabled={!sessionId}
+                  tables={editorTables}
+                  autoFocus
+                />
+                {!sessionId ? (
+                  <p className="text-xs text-amber-600">
+                    Start a session to run queries.
+                  </p>
+                ) : !isQueryValid && validationErrors.length > 0 ? (
+                  <p className="text-xs text-red-600">
+                    {validationErrors[0]}
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Session active. Press <kbd className="px-1.5 py-0.5 rounded bg-muted border text-[10px]">Cmd+Enter</kbd> to run.
+                  </p>
+                )}
               </div>
 
               {/* Results Section */}
