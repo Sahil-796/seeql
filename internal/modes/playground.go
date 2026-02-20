@@ -54,27 +54,33 @@ func (p *PlaygroundMode) handleCreateTable(ctx context.Context, stmt *sqlparser.
 		return nil, err
 	}
 
-	tableSchema := &schema.TableSchema{
-		Name:    parsedDDL.TableName,
-		Columns: make([]schema.ColumnSchema, len(parsedDDL.Columns)),
-	}
-
-	if err := schema.Validate.Struct(tableSchema); err != nil {
-		validationErrors := err.(validator.ValidationErrors)
-		return nil, fmt.Errorf("invalid table schema: %s", validationErrors[0].Error())
-	}
-
+	// Build columns first, then validate
+	columns := make([]schema.ColumnSchema, len(parsedDDL.Columns))
 	for i, col := range parsedDDL.Columns {
-		tableSchema.Columns[i] = schema.ColumnSchema{
+		columns[i] = schema.ColumnSchema{
 			Name:      col.Name,
 			Type:      col.Type,
 			Nullable:  col.Nullable,
 			IsPrimary: col.IsPrimary,
+			IsForeign: col.IsForeign,
+			RefTable:  col.RefTable,
+			RefColumn: col.RefColumn,
 			Constraints: schema.Constraints{
 				MaxLength: col.MaxLength,
 				Unique:    col.IsUnique,
 			},
 		}
+	}
+
+	tableSchema := &schema.TableSchema{
+		Name:    parsedDDL.TableName,
+		Columns: columns,
+	}
+
+	// Validate after columns are populated
+	if err := schema.Validate.Struct(tableSchema); err != nil {
+		validationErrors := err.(validator.ValidationErrors)
+		return nil, fmt.Errorf("invalid table schema: %s", validationErrors[0].Error())
 	}
 
 	// Create table in database

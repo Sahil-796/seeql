@@ -22,6 +22,9 @@ type ParsedColumn struct {
 	IsPrimary bool
 	IsUnique  bool
 	MaxLength int
+	IsForeign bool
+	RefTable  string
+	RefColumn string
 }
 
 // ParseCreateTable parses a CREATE TABLE statement
@@ -50,10 +53,38 @@ func ExtractSchemaFromDDL(createTable *sqlparser.CreateTable) (*ParsedDDL, error
 		Columns:   make([]ParsedColumn, 0),
 	}
 
+	// Build a map of column name -> index for later FK updates
+	colIndexMap := make(map[string]int)
+
 	// Process each column definition
 	for _, colDef := range createTable.TableSpec.Columns {
 		col := extractColumn(colDef)
+		colIndexMap[strings.ToLower(col.Name)] = len(parsed.Columns)
 		parsed.Columns = append(parsed.Columns, col)
+	}
+
+	// Process table-level constraints (including FOREIGN KEY)
+	for _, constraint := range createTable.TableSpec.Constraints {
+		// Check if this is a ForeignKeyDefinition
+		if fk, ok := constraint.Details.(*sqlparser.ForeignKeyDefinition); ok {
+			// fk.Source contains the local columns
+			// fk.ReferenceDefinition contains the referenced table/columns
+			if len(fk.Source) > 0 && fk.ReferenceDefinition != nil {
+				localColName := fk.Source[0].String()
+				refTable := fk.ReferenceDefinition.ReferencedTable.Name.String()
+				refColumn := ""
+				if len(fk.ReferenceDefinition.ReferencedColumns) > 0 {
+					refColumn = fk.ReferenceDefinition.ReferencedColumns[0].String()
+				}
+
+				// Update the column with FK info
+				if colIdx, ok := colIndexMap[strings.ToLower(localColName)]; ok {
+					parsed.Columns[colIdx].IsForeign = true
+					parsed.Columns[colIdx].RefTable = refTable
+					parsed.Columns[colIdx].RefColumn = refColumn
+				}
+			}
+		}
 	}
 
 	return parsed, nil
