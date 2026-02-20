@@ -115,6 +115,16 @@ func extractColumn(colDef *sqlparser.ColumnDefinition) ParsedColumn {
 			colDef.Type.Options.KeyOpt == sqlparser.ColKeyUniqueKey {
 			col.IsUnique = true
 		}
+
+		// Check inline REFERENCES (e.g., user_id INTEGER REFERENCES users(id))
+		if colDef.Type.Options.Reference != nil {
+			ref := colDef.Type.Options.Reference
+			col.IsForeign = true
+			col.RefTable = ref.ReferencedTable.Name.String()
+			if len(ref.ReferencedColumns) > 0 {
+				col.RefColumn = ref.ReferencedColumns[0].String()
+			}
+		}
 	}
 
 	// Extract length if present (for VARCHAR(255), etc.)
