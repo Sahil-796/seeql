@@ -24,13 +24,19 @@ jobs:
           tenant-id: ${{ secrets.SEEQLCONTAINER_AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.SEEQLCONTAINER_AZURE_SUBSCRIPTION_ID }}
 
+      - name: Get ACR credentials
+        run: |
+          ACR_USERNAME=$(az acr credential show --name seeqlregistry --query username -o tsv)
+          ACR_PASSWORD=$(az acr credential show --name seeqlregistry --query "passwords[0].value" -o tsv)
+          echo "ACR_USERNAME=$ACR_USERNAME" >> $GITHUB_ENV
+          echo "ACR_PASSWORD=$ACR_PASSWORD" >> $GITHUB_ENV
+
       - name: Build and push image to ACR
         run: |
-          az acr build \
-            --registry seeqlregistry \
-            --image seeql:${{ github.sha }} \
-            --image seeql:latest \
-            .
+          docker login seeqlregistry.azurecr.io -u $ACR_USERNAME -p $ACR_PASSWORD
+          docker build -t seeqlregistry.azurecr.io/seeql:${{ github.sha }} -t seeqlregistry.azurecr.io/seeql:latest .
+          docker push seeqlregistry.azurecr.io/seeql:${{ github.sha }}
+          docker push seeqlregistry.azurecr.io/seeql:latest
 
       - name: Deploy to Container App
         run: |
