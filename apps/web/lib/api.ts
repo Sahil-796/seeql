@@ -6,9 +6,13 @@ import type {
   SessionSchemaResponse,
   SessionInfoResponse,
   HealthResponse,
+  GenerateRequest,
+  GenerateResponse,
 } from "./types";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+const API_BASE_URL = process.env.NEXT_PUBLIC_PROD === "true" 
+  ? "https://seeql-container.greenocean-3c22b32a.centralindia.azurecontainerapps.io"
+  : (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080");
 
 class ApiError extends Error {
   constructor(
@@ -111,6 +115,17 @@ export const api = {
   getSession: async (sessionId: string): Promise<SessionInfoResponse> => {
     return fetchApi<SessionInfoResponse>(`/playground/session/${sessionId}`, {
       method: "GET",
+    });
+  },
+
+  /**
+   * Generate mock data from SQL schema
+   */
+  generate: async (sql: string, rowsPerTable: number): Promise<GenerateResponse> => {
+    const request: GenerateRequest = { sql, rows_per_table: rowsPerTable };
+    return fetchApi<GenerateResponse>("/generate", {
+      method: "POST",
+      body: JSON.stringify(request),
     });
   },
 };

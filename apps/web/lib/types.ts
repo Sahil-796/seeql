@@ -45,6 +45,16 @@ export interface PlaygroundExecuteRequest {
   sql: string;
 }
 
+export interface GenerateRequest {
+  sql: string;
+  rows_per_table: number;
+}
+
+export interface GenerateResponse {
+  data?: Record<string, Record<string, unknown>[]>;
+  error?: string;
+}
+
 // ============ API Response Types ============
 
 export interface QueryResult {
