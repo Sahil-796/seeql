@@ -24,6 +24,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -1018,6 +1019,23 @@ export default function PlaygroundPage() {
                       </Button>
                     </CardContent>
                   </Card>
+                ) : isSessionLoading ? (
+                  <div className="space-y-3">
+                    <Card className="overflow-hidden">
+                      <CardHeader className="pb-2 bg-muted/30">
+                        <div className="flex items-center gap-3">
+                          <Skeleton className="h-7 w-7 rounded-md" />
+                          <Skeleton className="h-4 w-24" />
+                          <Skeleton className="h-5 w-12 ml-auto rounded-full" />
+                        </div>
+                      </CardHeader>
+                      <CardContent className="p-3 space-y-1.5">
+                        <Skeleton className="h-6 w-full rounded" />
+                        <Skeleton className="h-6 w-full rounded" />
+                        <Skeleton className="h-6 w-3/4 rounded" />
+                      </CardContent>
+                    </Card>
+                  </div>
                 ) : sessionTables.length === 0 ? (
                   <Card className="border-dashed">
                     <CardContent className="p-6 text-center">
