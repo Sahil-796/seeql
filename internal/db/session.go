@@ -14,6 +14,12 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+const (
+	MaxSessions     = 100
+	SessionTTL      = 1 * time.Hour
+	CleanupInterval = 5 * time.Minute
+)
+
 type Session struct {
 	ID        string         `json:"-"`
 	DB        *sql.DB        `json:"-"`
@@ -48,6 +54,14 @@ func NewSession(id string, db *sql.DB) *Session {
 
 // creates a new session and stores in memory
 func (sm *SessionManager) CreateSession() (*Session, error) {
+	sm.mu.RLock()
+	count := len(sm.sessions)
+	sm.mu.RUnlock()
+
+	if count >= MaxSessions {
+		return nil, fmt.Errorf("maximum session limit reached (%d)", MaxSessions)
+	}
+
 	sessionID := uuid.New().String()
 	if err := sm.ensureDataDir(); err != nil {
 		return nil, err
@@ -114,6 +128,36 @@ func (sm *SessionManager) UpdateSession(session *Session) error {
 
 func (sm *SessionManager) ensureDataDir() error {
 	return os.MkdirAll(sm.dataDir, 0755)
+}
+
+// StartCleanup runs a background goroutine that expires idle sessions
+func (sm *SessionManager) StartCleanup() {
+	ticker := time.NewTicker(CleanupInterval)
+	go func() {
+		for range ticker.C {
+			sm.expireSessions()
+		}
+	}()
+}
+
+func (sm *SessionManager) expireSessions() {
+	now := time.Now()
+	var expired []string
+
+	sm.mu.RLock()
+	for id, session := range sm.sessions {
+		session.Mu.RLock()
+		if now.Sub(session.LastUsed) > SessionTTL {
+			expired = append(expired, id)
+		}
+		session.Mu.RUnlock()
+	}
+	sm.mu.RUnlock()
+
+	for _, id := range expired {
+		sm.CloseSession(id)
+		fmt.Printf("Expired idle session: %s\n", id)
+	}
 }
 
 func (sm *SessionManager) getDBPath(sessionID string) string {

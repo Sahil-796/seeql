@@ -163,7 +163,7 @@ Seeql is a SQL testing/debugging tool with two modes:
 
 - [ ] **Sessions never expire** (`session.go`) — in-memory map only grows. No TTL, no cleanup goroutine, no cap. Abandoned sessions leak `*sql.DB` + `.db` file forever until OOM.
 - [ ] **Rate limiter memory leak** (`limiter.go:12`) — `visitors` map gets permanent entry per IP, never pruned. Spoofed `X-Forwarded-For` headers can fill it.
-- [ ] **Race condition on Session fields** (`session.go:80`, `playground.go:93`) — `LastUsed` written after RLock released. `Schema.Tables` appended without any lock. Concurrent requests to same session = data race.
+- [x] **Race condition on Session fields** (`session.go:80`, `playground.go:93`) — `LastUsed` written after RLock released. `Schema.Tables` appended without any lock. Concurrent requests to same session = data race.
 
 ### High
 
