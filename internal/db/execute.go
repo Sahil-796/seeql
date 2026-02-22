@@ -229,37 +229,26 @@ func ExecuteDelete(ctx context.Context, sqlDB *sql.DB, query string) (int64, err
 	return result.RowsAffected()
 }
 
-// ExecuteRaw attempts to execute a query as a SELECT, or falls back to DML execution if it fails
+// ExecuteRaw attempts to execute a query as a SELECT, or falls back to Exec for DML
 func ExecuteRaw(ctx context.Context, sqlDB *sql.DB, query string) (*ExecutionResult, error) {
-	// Try as SELECT first
-	result, err := ExecuteQuery(ctx, sqlDB, query)
-	if err != nil {
-		// Fall back to DML execution for INSERT/UPDATE/DELETE
-		// Try INSERT first
-		rowsAffected, execErr := ExecuteInsert(ctx, sqlDB, query)
-		if execErr == nil {
-			return &ExecutionResult{
-				RowCount: int(rowsAffected),
-			}, nil
-		}
-
-		// Try UPDATE
-		rowsAffected, execErr = ExecuteUpdate(ctx, sqlDB, query)
-		if execErr == nil {
-			return &ExecutionResult{
-				RowCount: int(rowsAffected),
-			}, nil
-		}
-
-		// Try DELETE
-		rowsAffected, execErr = ExecuteDelete(ctx, sqlDB, query)
-		if execErr == nil {
-			return &ExecutionResult{
-				RowCount: int(rowsAffected),
-			}, nil
-		}
-
+	if err := ValidateQuery(query); err != nil {
 		return nil, err
 	}
-	return result, nil
+
+	// Try as SELECT first
+	result, err := ExecuteQuery(ctx, sqlDB, query)
+	if err == nil {
+		return result, nil
+	}
+
+	// Fall back to Exec once for any DML/DDL
+	execResult, execErr := sqlDB.ExecContext(ctx, query)
+	if execErr != nil {
+		return nil, err // return original SELECT error, more useful
+	}
+
+	rowsAffected, _ := execResult.RowsAffected()
+	return &ExecutionResult{
+		RowCount: int(rowsAffected),
+	}, nil
 }
