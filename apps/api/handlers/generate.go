@@ -29,6 +29,9 @@ func GenerateData(c *gin.Context) {
 	if req.RowsPerTable <= 0 {
 		req.RowsPerTable = 10
 	}
+	if req.RowsPerTable > 20 {
+		req.RowsPerTable = 20
+	}
 
 	s, err := schema.BuildSchema(req.SQL)
 	if err != nil {

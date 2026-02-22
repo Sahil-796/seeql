@@ -85,7 +85,7 @@ func CreateTable(sqlDB *sql.DB, table *schema.TableSchema) error {
 	var cols []string
 	for _, col := range table.Columns {
 		sqlType := mapToSQLiteType(col.Type)
-		colDef := fmt.Sprintf("%s %s", col.Name, sqlType)
+		colDef := fmt.Sprintf(`"%s" %s`, col.Name, sqlType)
 		if col.IsPrimary {
 			colDef += " PRIMARY KEY"
 		}
@@ -95,7 +95,7 @@ func CreateTable(sqlDB *sql.DB, table *schema.TableSchema) error {
 		cols = append(cols, colDef)
 	}
 
-	query := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (%s)", table.Name, strings.Join(cols, ", "))
+	query := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS "%s" (%s)`, table.Name, strings.Join(cols, ", "))
 	_, err := sqlDB.Exec(query)
 	return err
 }
@@ -131,12 +131,12 @@ func InsertData(sqlDB *sql.DB, tableName string, rows []map[string]any) error {
 		var values []any
 
 		for col, val := range row {
-			cols = append(cols, col)
+			cols = append(cols, fmt.Sprintf(`"%s"`, col))
 			placeholders = append(placeholders, "?")
 			values = append(values, val)
 		}
 
-		query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)",
+		query := fmt.Sprintf(`INSERT INTO "%s" (%s) VALUES (%s)`,
 			tableName,
 			strings.Join(cols, ", "),
 			strings.Join(placeholders, ", "))
@@ -151,7 +151,7 @@ func InsertData(sqlDB *sql.DB, tableName string, rows []map[string]any) error {
 
 // GetTableColumns returns the column names for a given table
 func GetTableColumns(ctx context.Context, sqlDB *sql.DB, tableName string) ([]string, error) {
-	rows, err := sqlDB.QueryContext(ctx, fmt.Sprintf("SELECT * FROM %s LIMIT 0", tableName))
+	rows, err := sqlDB.QueryContext(ctx, fmt.Sprintf(`SELECT * FROM "%s" LIMIT 0`, tableName))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get table info: %w", err)
 	}
@@ -168,7 +168,7 @@ func GetTableColumns(ctx context.Context, sqlDB *sql.DB, tableName string) ([]st
 // AddColumn adds a new column to an existing table
 func AddColumn(sqlDB *sql.DB, tableName string, col *schema.ColumnSchema) error {
 	sqlType := mapToSQLiteType(col.Type)
-	query := fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", tableName, col.Name, sqlType)
+	query := fmt.Sprintf(`ALTER TABLE "%s" ADD COLUMN "%s" %s`, tableName, col.Name, sqlType)
 	_, err := sqlDB.Exec(query)
 	return err
 }

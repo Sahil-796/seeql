@@ -1,4 +1,3 @@
-structure.md
 *.db
 *.sqlite
 *.log
@@ -14,3 +13,4 @@ build/
 *.swo
 *~
 .opencode
+data/
