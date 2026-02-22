@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"fmt"
 	"math/rand"
 	"strings"
 	"time"
@@ -158,11 +159,17 @@ func (g *Generator) ensureUnique(tableName, columnName string, value any, regene
 		g.uniqueVals[tableName][columnName] = make(map[any]bool)
 	}
 
-	// If value already exists, regenerate
-	if g.uniqueVals[tableName][columnName][value] {
-		return regenerate()
+	for attempt := 0; attempt < 100; attempt++ {
+		if !g.uniqueVals[tableName][columnName][value] {
+			g.uniqueVals[tableName][columnName][value] = true
+			return value
+		}
+		value = regenerate()
 	}
 
+	// Exhausted retries — force unique by appending counter
+	counter := len(g.uniqueVals[tableName][columnName])
+	value = fmt.Sprintf("%v_%d", value, counter)
 	g.uniqueVals[tableName][columnName][value] = true
 	return value
 }

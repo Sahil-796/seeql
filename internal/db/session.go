@@ -124,14 +124,6 @@ func (sm *SessionManager) CloseSession(id string) error {
 	return nil
 }
 
-// UpdateSession updates last used time
-func (sm *SessionManager) UpdateSession(session *Session) error {
-	session.Mu.Lock()
-	session.LastUsed = time.Now()
-	session.Mu.Unlock()
-	return nil
-}
-
 func (sm *SessionManager) ensureDataDir() error {
 	return os.MkdirAll(sm.dataDir, 0755)
 }

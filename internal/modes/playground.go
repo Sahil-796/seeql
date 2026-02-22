@@ -106,11 +106,6 @@ func (p *PlaygroundMode) handleCreateTable(ctx context.Context, stmt *sqlparser.
 	p.session.Schema.Tables = append(p.session.Schema.Tables, *tableSchema)
 	p.session.Mu.Unlock()
 
-	// persist schema changes to session
-	if err := p.sessionManager.UpdateSession(p.session); err != nil {
-		return nil, fmt.Errorf("failed to update session: %w", err)
-	}
-
 	return &QueryResult{
 		RowCount: 0,
 		Schema:   p.session.Schema,
@@ -199,10 +194,6 @@ func (p *PlaygroundMode) handleAlterTable(ctx context.Context, stmt *sqlparser.A
 	}
 	p.session.Mu.Unlock()
 
-	if err := p.sessionManager.UpdateSession(p.session); err != nil {
-		return nil, fmt.Errorf("failed to update session: %w", err)
-	}
-
 	return &QueryResult{
 		RowCount: 0,
 		Schema:   p.session.Schema,
@@ -227,10 +218,6 @@ func (p *PlaygroundMode) handleDropTable(ctx context.Context, stmt *sqlparser.Dr
 		}
 	}
 	p.session.Mu.Unlock()
-
-	if err := p.sessionManager.UpdateSession(p.session); err != nil {
-		return nil, fmt.Errorf("failed to update session: %w", err)
-	}
 
 	return &QueryResult{
 		RowCount: 0,

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"os"
 	"time"
 
@@ -39,5 +40,5 @@ func main() {
 		port = "8080"
 	}
 
-	r.Run(":" + port)
+	log.Fatal(r.Run(":" + port))
 }

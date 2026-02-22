@@ -174,17 +174,17 @@ Seeql is a SQL testing/debugging tool with two modes:
 ### Medium
 
 - [x] **SQL identifiers not quoted** (`execute.go:80,121,136,153`) — table/column names interpolated raw via `fmt.Sprintf`. Should use `"%s"` quoting.
-- [ ] **Cap RowsPerTable** (`generate.go:29`) — lower bound checked, no upper bound. Client can request millions of rows. Cap to 20.
-- [ ] **Cap total sessions** (`session.go`) — `CreateSession` has no limit. Trivial DoS via `POST /playground/session` in a loop.
-- [ ] **`ExecuteRaw` double-execute** (`execute.go:197-228`) — tries Query, then Insert, then Update, then Delete on failure. DML can execute multiple times.
-- [ ] **`ensureUnique` infinite recursion** (`data.go:144`) — if value space < row count (e.g. unique BOOLEAN with 3+ rows), stack overflow.
+- [x] **Cap RowsPerTable** (`generate.go:29`) — lower bound checked, no upper bound. Client can request millions of rows. Cap to 20.
+- [x] **Cap total sessions** (`session.go`) — `CreateSession` has no limit. Trivial DoS via `POST /playground/session` in a loop.
+- [x] **`ExecuteRaw` double-execute** (`execute.go:197-228`) — tries Query, then Insert, then Update, then Delete on failure. DML can execute multiple times.
+- [x] **`ensureUnique` infinite recursion** (`data.go:144`) — if value space < row count (e.g. unique BOOLEAN with 3+ rows), stack overflow.
 - [ ] **CORS wildcards silently ignored** (`main.go:24-25`) — `gin-contrib/cors` needs `AllowWildcard: true` for `*.vercel.app` patterns.
 
 ### Low
 
-- [ ] **`r.Run()` error discarded** (`main.go:42`) — if port is taken, app silently exits. Use `log.Fatal()`.
-- [ ] **`UpdateSession` is a no-op** (`session.go:105`) — schema already mutated in-place via pointer. Only sets `LastUsed` which `GetSession` already does. Clarify or remove.
-- [ ] **`PlaygroundMode.Close()` corrupts shared session** (`playground.go:174`) — closes `*sql.DB` on shared Session without removing from map. Not called today but a trap for future code.
+- [x] **`r.Run()` error discarded** (`main.go:42`) — if port is taken, app silently exits. Use `log.Fatal()`.
+- [x] **`UpdateSession` is a no-op** (`session.go:105`) — schema already mutated in-place via pointer. Only sets `LastUsed` which `GetSession` already does. Clarify or remove.
+- [x] **`PlaygroundMode.Close()` corrupts shared session** (`playground.go:174`) — closes `*sql.DB` on shared Session without removing from map. Not called today but a trap for future code.
 
 ---
 
