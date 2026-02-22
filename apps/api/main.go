@@ -7,19 +7,12 @@ import (
 	"github.com/joho/godotenv"
 
 	"github.com/Sahil-796/seeql/apps/api/routes"
-	"github.com/Sahil-796/seeql/internal/db"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
 func main() {
 	godotenv.Load()
-	redisAddr := os.Getenv("REDIS_ADDR")
-	if redisAddr == "" {
-		redisAddr = "localhost:6379"
-	}
-	redisPassword := os.Getenv("REDIS_PASSWORD")
-	db.InitRedis(redisAddr, redisPassword)
 
 	r := gin.Default()
 
