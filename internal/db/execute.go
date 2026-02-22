@@ -16,6 +16,20 @@ type ExecutionResult struct {
 	RowCount int
 }
 
+func ConfigureSQLite(sqlDB *sql.DB) error {
+	pragmas := []string{
+		"PRAGMA journal_mode=WAL",
+		"PRAGMA busy_timeout=5000",
+		"PRAGMA foreign_keys=ON",
+	}
+	for _, p := range pragmas {
+		if _, err := sqlDB.Exec(p); err != nil {
+			return fmt.Errorf("failed to set %s: %w", p, err)
+		}
+	}
+	return nil
+}
+
 func ExecuteQuery(ctx context.Context, sqlDB *sql.DB, query string) (*ExecutionResult, error) {
 	// Validate SELECT-specific query (includes length, dangerous patterns, JOIN count)
 	if err := ValidateSelectQuery(query); err != nil {

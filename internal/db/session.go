@@ -73,6 +73,12 @@ func (sm *SessionManager) CreateSession() (*Session, error) {
 		return nil, err
 	}
 
+	if err := ConfigureSQLite(db); err != nil {
+		db.Close()
+		os.Remove(dbPath)
+		return nil, fmt.Errorf("failed to configure database: %w", err)
+	}
+
 	session := NewSession(sessionID, db)
 
 	sm.mu.Lock()

@@ -38,6 +38,10 @@ func (q *QuickMode) Run(ctx context.Context, query string) (*QueryResult, error)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create database: %w", err)
 		}
+		if err := db.ConfigureSQLite(sqlDB); err != nil {
+			sqlDB.Close()
+			return nil, fmt.Errorf("failed to configure database: %w", err)
+		}
 		q.sqlDB = sqlDB
 		q.initialized = true
 		q.schema = newSchema

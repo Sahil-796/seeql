@@ -167,7 +167,7 @@ Seeql is a SQL testing/debugging tool with two modes:
 
 ### High
 
-- [ ] **No SQLite PRAGMAs** (`session.go:56`) — no WAL mode (readers block writers), no `busy_timeout` (SQLITE_BUSY instead of retry), no `foreign_keys=ON` (FK constraints ignored by SQLite).
+- [x] **No SQLite PRAGMAs** (`session.go:56`) — no WAL mode (readers block writers), no `busy_timeout` (SQLITE_BUSY instead of retry), no `foreign_keys=ON` (FK constraints ignored by SQLite).
 - [ ] **DML has no context/timeout** (`execute.go:161-194`) — `ExecuteInsert/Update/Delete` call `sqlDB.Exec()` not `ExecContext()`. The 30s handler timeout never reaches DML.
 - [ ] **Missing `rows.Err()` check** (`execute.go:57`) — after `rows.Next()` loop, partial results returned silently on mid-iteration errors.
 
