@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Sahil-796/seeql/internal/schema"
@@ -17,21 +18,34 @@ type Session struct {
 	ID        string         `json:"-"`
 	DB        *sql.DB        `json:"-"`
 	Schema    *schema.Schema `json:"schema"`
-	CreatedAt int64          `json:"created_at"`
-	LastUsed  int64          `json:"last_used"`
+	CreatedAt time.Time      `json:"created_at"`
+	LastUsed  time.Time      `json:"last_used"`
 }
 
 type SessionManager struct {
-	dataDir string
+	sessions map[string]*Session
+	mu       sync.RWMutex
+	dataDir  string
 }
 
 func NewSessionManager(dataDir string) *SessionManager {
 	return &SessionManager{
-		dataDir: dataDir,
+		sessions: make(map[string]*Session),
+		dataDir:  dataDir,
 	}
 }
 
-// creates a new session and stores in Redis
+func NewSession(id string, db *sql.DB) *Session {
+	return &Session{
+		ID:        id,
+		DB:        db,
+		Schema:    &schema.Schema{Tables: []schema.TableSchema{}},
+		CreatedAt: time.Now(),
+		LastUsed:  time.Now(),
+	}
+}
+
+// creates a new session and stores in memory
 func (sm *SessionManager) CreateSession() (*Session, error) {
 	sessionID := uuid.New().String()
 	if err := sm.ensureDataDir(); err != nil {
@@ -44,88 +58,61 @@ func (sm *SessionManager) CreateSession() (*Session, error) {
 		return nil, err
 	}
 
-	session := &Session{
-		ID:        sessionID,
-		DB:        db,
-		Schema:    &schema.Schema{Tables: []schema.TableSchema{}},
-		CreatedAt: timeNow(),
-		LastUsed:  timeNow(),
-	}
+	session := NewSession(sessionID, db)
 
-	// Store session metadata in Redis
-	if err := StoreSession(sessionID, session); err != nil {
-		db.Close()
-		os.Remove(dbPath)
-		return nil, fmt.Errorf("failed to store session in Redis: %w", err)
-	}
+	sm.mu.Lock()
+	sm.sessions[sessionID] = session
+	sm.mu.Unlock()
 
 	return session, nil
 }
 
-// get session by id - retrieves from Redis, recreates DB connection
+// get session by id from memory
 func (sm *SessionManager) GetSession(id string) (*Session, error) {
-	// Get session metadata from Redis
-	session, err := GetSessionFromRedis(id)
-	if err != nil {
+	sm.mu.RLock()
+	session, exists := sm.sessions[id]
+	sm.mu.RUnlock()
+
+	if !exists {
 		return nil, fmt.Errorf("session not found: %s", id)
 	}
 
-	// Recreate SQLite connection
-	dbPath := sm.getDBPath(id)
-	db, err := sql.Open("sqlite3", dbPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open database: %w", err)
-	}
-
-	session.DB = db
-	session.LastUsed = timeNow()
-
-	// Update last used time in Redis
-	StoreSession(id, session)
-
+	session.LastUsed = time.Now()
 	return session, nil
 }
 
 func (sm *SessionManager) CloseSession(id string) error {
-	// Get session to close DB connection
-	session, err := sm.GetSession(id)
-	if err != nil {
-		return err
+	sm.mu.Lock()
+	session, exists := sm.sessions[id]
+	if !exists {
+		sm.mu.Unlock()
+		return fmt.Errorf("session not found: %s", id)
 	}
+	delete(sm.sessions, id)
+	sm.mu.Unlock()
 
 	if session.DB != nil {
 		session.DB.Close()
 	}
 
-	// Clean up SQLite file
 	dbPath := sm.getDBPath(id)
 	os.Remove(dbPath)
-
-	// Remove from Redis
-	if err := DeleteSessionFromRedis(id); err != nil {
-		return fmt.Errorf("failed to delete session from Redis: %w", err)
-	}
 
 	return nil
 }
 
-// UpdateSession saves session metadata to Redis after schema changes
+// UpdateSession updates last used time
 func (sm *SessionManager) UpdateSession(session *Session) error {
-	session.LastUsed = timeNow()
-	return StoreSession(session.ID, session)
+	session.LastUsed = time.Now()
+	return nil
 }
 
 func (sm *SessionManager) ensureDataDir() error {
 	return os.MkdirAll(sm.dataDir, 0755)
 }
 
-// file path
 func (sm *SessionManager) getDBPath(sessionID string) string {
 	return filepath.Join(sm.dataDir, sessionID+".db")
-}
-
-func timeNow() int64 {
-	return time.Now().Unix()
 }
 
 func (sm *SessionManager) CleanupOrphanedDBs() error {
@@ -134,6 +121,9 @@ func (sm *SessionManager) CleanupOrphanedDBs() error {
 		return fmt.Errorf("failed to read data directory: %w", err)
 	}
 
+	sm.mu.RLock()
+	defer sm.mu.RUnlock()
+
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".db") {
 			continue
@@ -141,10 +131,7 @@ func (sm *SessionManager) CleanupOrphanedDBs() error {
 
 		sessionID := strings.TrimSuffix(entry.Name(), ".db")
 
-		// Check if session exists in Redis
-		_, err := GetSessionFromRedis(sessionID)
-		if err != nil {
-			// Session not found in Redis, delete the orphaned file
+		if _, exists := sm.sessions[sessionID]; !exists {
 			dbPath := sm.getDBPath(sessionID)
 			if removeErr := os.Remove(dbPath); removeErr != nil {
 				fmt.Printf("Failed to remove orphaned DB %s: %v\n", sessionID, removeErr)
