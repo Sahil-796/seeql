@@ -17,6 +17,7 @@ import (
 type Session struct {
 	ID        string         `json:"-"`
 	DB        *sql.DB        `json:"-"`
+	Mu        sync.RWMutex   `json:"-"`
 	Schema    *schema.Schema `json:"schema"`
 	CreatedAt time.Time      `json:"created_at"`
 	LastUsed  time.Time      `json:"last_used"`
@@ -77,7 +78,9 @@ func (sm *SessionManager) GetSession(id string) (*Session, error) {
 		return nil, fmt.Errorf("session not found: %s", id)
 	}
 
+	session.Mu.Lock()
 	session.LastUsed = time.Now()
+	session.Mu.Unlock()
 	return session, nil
 }
 
@@ -103,7 +106,9 @@ func (sm *SessionManager) CloseSession(id string) error {
 
 // UpdateSession updates last used time
 func (sm *SessionManager) UpdateSession(session *Session) error {
+	session.Mu.Lock()
 	session.LastUsed = time.Now()
+	session.Mu.Unlock()
 	return nil
 }
 

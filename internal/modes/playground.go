@@ -90,7 +90,9 @@ func (p *PlaygroundMode) handleCreateTable(ctx context.Context, stmt *sqlparser.
 	}
 
 	// Schema is guaranteed initialized by NewSession constructor
+	p.session.Mu.Lock()
 	p.session.Schema.Tables = append(p.session.Schema.Tables, *tableSchema)
+	p.session.Mu.Unlock()
 
 	// persist schema changes to session
 	if err := p.sessionManager.UpdateSession(p.session); err != nil {

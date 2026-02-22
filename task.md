@@ -66,18 +66,14 @@ Seeql is a SQL testing/debugging tool with two modes:
   - `mapToSQLiteType()` → Converts semantic types to SQLite storage types
 - [x] **session.go**: Session management for PlaygroundMode
   - `Session` struct: ID, DB, Schema, CreatedAt, LastUsed
-  - `SessionManager`: Manages multiple sessions with Redis + file-based SQLite
-  - `CreateSession()` → Creates new session with UUID, stores metadata in Redis
-  - `GetSession(id)` → Retrieve session metadata from Redis, recreates DB connection
-  - `CloseSession(id)` → Close DB, cleanup file, delete from Redis
-  - `UpdateSession()` → Updates session metadata in Redis after schema changes
+  - `SessionManager`: In-memory map with sync.RWMutex + file-based SQLite
+  - `NewSession(id, db)` → Constructor (ensures Schema is never nil)
+  - `CreateSession()` → Creates new session with UUID, stores in memory map
+  - `GetSession(id)` → Retrieve session from memory map
+  - `CloseSession(id)` → Close DB, cleanup file, remove from map
+  - `UpdateSession()` → Updates LastUsed timestamp
+  - `CleanupOrphanedDBs()` → Removes .db files not tracked in memory map
   - `getDBPath()` → Returns file path for session database
-- [x] **redis.go**: Redis client for session metadata storage
-  - `InitRedis(addr, password)` → Initialize Redis connection
-  - `GetRedis()` → Returns Redis client
-  - `StoreSession()` → Save session metadata with 24hr TTL (marshals struct directly for consistent JSON keys)
-  - `GetSessionFromRedis()` → Retrieve session by ID (sets session.ID from Redis key)
-  - `DeleteSessionFromRedis()` → Remove session from Redis
 - [x] **guardrails.go**: Query protection and limits
   - `ValidateQuery()` → Length validation + dangerous pattern blocking
   - `ValidateSelectQuery()` → SELECT-specific validation with JOIN limits
@@ -161,41 +157,40 @@ Seeql is a SQL testing/debugging tool with two modes:
 
 ---
 
-## Future Improvements (For Later Consideration)
+## Bugs & Fixes
 
-### Medium Priority
+### Critical
 
-#### Request Deduplication
-- Prevent double-clicks from executing same query twice
-- In-flight request tracking with SQL hash as key
-- Return existing result if same query is already running
-- **Note**: Frontend already has button disable on click, so this is backend safety net only
+- [ ] **Sessions never expire** (`session.go`) — in-memory map only grows. No TTL, no cleanup goroutine, no cap. Abandoned sessions leak `*sql.DB` + `.db` file forever until OOM.
+- [ ] **Rate limiter memory leak** (`limiter.go:12`) — `visitors` map gets permanent entry per IP, never pruned. Spoofed `X-Forwarded-For` headers can fill it.
+- [ ] **Race condition on Session fields** (`session.go:80`, `playground.go:93`) — `LastUsed` written after RLock released. `Schema.Tables` appended without any lock. Concurrent requests to same session = data race.
 
-#### Circuit Breaker Pattern
-- Track SQLite failure rates
-- Open circuit after N failures in time window
-- Fast-fail with 503 when circuit is open
-- Auto-recovery after cooldown period
-- **Note**: Only needed if seeing SQLite failures in production
+### High
 
-### Low Priority (Observability)
+- [ ] **No SQLite PRAGMAs** (`session.go:56`) — no WAL mode (readers block writers), no `busy_timeout` (SQLITE_BUSY instead of retry), no `foreign_keys=ON` (FK constraints ignored by SQLite).
+- [ ] **DML has no context/timeout** (`execute.go:161-194`) — `ExecuteInsert/Update/Delete` call `sqlDB.Exec()` not `ExecContext()`. The 30s handler timeout never reaches DML.
+- [ ] **Missing `rows.Err()` check** (`execute.go:57`) — after `rows.Next()` loop, partial results returned silently on mid-iteration errors.
 
-#### Prometheus Metrics
-- Query execution duration histogram
-- Error rates by type (syntax, timeout, runtime)
-- Active sessions gauge
-- Rate limit hits counter
+### Medium
 
-#### Graceful Shutdown
-- Drain in-flight requests on SIGTERM
-- Save session state before shutdown (optional)
-- Kubernetes-friendly shutdown handling
+- [ ] **SQL identifiers not quoted** (`execute.go:80,121,136,153`) — table/column names interpolated raw via `fmt.Sprintf`. Should use `"%s"` quoting.
+- [ ] **Cap RowsPerTable** (`generate.go:29`) — lower bound checked, no upper bound. Client can request millions of rows. Cap to 20.
+- [ ] **Cap total sessions** (`session.go`) — `CreateSession` has no limit. Trivial DoS via `POST /playground/session` in a loop.
+- [ ] **`ExecuteRaw` double-execute** (`execute.go:197-228`) — tries Query, then Insert, then Update, then Delete on failure. DML can execute multiple times.
+- [ ] **`ensureUnique` infinite recursion** (`data.go:144`) — if value space < row count (e.g. unique BOOLEAN with 3+ rows), stack overflow.
+- [ ] **CORS wildcards silently ignored** (`main.go:24-25`) — `gin-contrib/cors` needs `AllowWildcard: true` for `*.vercel.app` patterns.
+
+### Low
+
+- [ ] **`r.Run()` error discarded** (`main.go:42`) — if port is taken, app silently exits. Use `log.Fatal()`.
+- [ ] **`UpdateSession` is a no-op** (`session.go:105`) — schema already mutated in-place via pointer. Only sets `LastUsed` which `GetSession` already does. Clarify or remove.
+- [ ] **`PlaygroundMode.Close()` corrupts shared session** (`playground.go:174`) — closes `*sql.DB` on shared Session without removing from map. Not called today but a trap for future code.
 
 ---
 
 ## Deployment
 
-See [DEPLOYMENT.md](DEPLOYMENT.md) for Azure Container Apps + Redis setup.
+See [DEPLOYMENT.md](DEPLOYMENT.md) for Azure Container Apps setup.
 
 ---
 
@@ -287,15 +282,19 @@ curl -X DELETE http://localhost:8080/playground/session/$SESSION
 - ✅ Query complexity guardrails
 - ✅ Resource quotas
 - ✅ Multi-statement attack prevention
-- ✅ Redis integration for session storage (24hr TTL)
-- ✅ Environment-based Redis configuration
+- ✅ In-memory session management (map + mutex)
 - ✅ Ready for containerized deployment
-- ✅ Fixed Redis JSON key mismatch (session persistence bug)
 
 ---
 
 ## Next Steps
 
-1. **Azure Deployment**: Deploy to Azure Container Apps with Azure Cache for Redis
-2. **Custom Domain**: Use Namecheap free domain via GitHub Student
-3. **Cloudflare**: Add DDoS protection and CDN
+1. **Fix critical bugs** (session expiry, rate limiter cleanup, race conditions)
+2. **Set SQLite PRAGMAs** (WAL, busy_timeout, foreign_keys)
+3. **Pass context to DML functions** (ExecContext)
+4. **Add rows.Err() check, quote identifiers, cap rows/sessions**
+5. **Fix ExecuteRaw double-execute + ensureUnique recursion**
+6. **CORS wildcard fix**
+7. **Azure Deployment**: Deploy to Azure Container Apps
+8. **Custom Domain**: Use Namecheap free domain via GitHub Student
+9. **Cloudflare**: Add DDoS protection and CDN
