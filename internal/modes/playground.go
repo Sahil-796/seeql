@@ -120,7 +120,7 @@ func (p *PlaygroundMode) handleSelect(ctx context.Context, query string) (*Query
 }
 
 func (p *PlaygroundMode) handleInsert(ctx context.Context, query string) (*QueryResult, error) {
-	rowsAffected, err := db.ExecuteInsert(p.session.DB, query)
+	rowsAffected, err := db.ExecuteInsert(ctx, p.session.DB, query)
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +132,7 @@ func (p *PlaygroundMode) handleInsert(ctx context.Context, query string) (*Query
 }
 
 func (p *PlaygroundMode) handleUpdate(ctx context.Context, query string) (*QueryResult, error) {
-	rowsAffected, err := db.ExecuteUpdate(p.session.DB, query)
+	rowsAffected, err := db.ExecuteUpdate(ctx, p.session.DB, query)
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +144,7 @@ func (p *PlaygroundMode) handleUpdate(ctx context.Context, query string) (*Query
 }
 
 func (p *PlaygroundMode) handleDelete(ctx context.Context, query string) (*QueryResult, error) {
-	rowsAffected, err := db.ExecuteDelete(p.session.DB, query)
+	rowsAffected, err := db.ExecuteDelete(ctx, p.session.DB, query)
 	if err != nil {
 		return nil, err
 	}

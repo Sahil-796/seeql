@@ -172,11 +172,11 @@ func AddColumn(sqlDB *sql.DB, tableName string, col *schema.ColumnSchema) error 
 // DIRECT .EXEC CALLS -----------------------------------------------------------
 
 // ExecuteInsert executes an INSERT statement and returns the number of affected rows
-func ExecuteInsert(sqlDB *sql.DB, query string) (int64, error) {
+func ExecuteInsert(ctx context.Context, sqlDB *sql.DB, query string) (int64, error) {
 	if err := ValidateQuery(query); err != nil {
 		return 0, err
 	}
-	result, err := sqlDB.Exec(query)
+	result, err := sqlDB.ExecContext(ctx, query)
 	if err != nil {
 		return 0, err
 	}
@@ -184,11 +184,11 @@ func ExecuteInsert(sqlDB *sql.DB, query string) (int64, error) {
 }
 
 // ExecuteUpdate executes an UPDATE statement and returns the number of affected rows
-func ExecuteUpdate(sqlDB *sql.DB, query string) (int64, error) {
+func ExecuteUpdate(ctx context.Context, sqlDB *sql.DB, query string) (int64, error) {
 	if err := ValidateQuery(query); err != nil {
 		return 0, err
 	}
-	result, err := sqlDB.Exec(query)
+	result, err := sqlDB.ExecContext(ctx, query)
 	if err != nil {
 		return 0, err
 	}
@@ -196,11 +196,11 @@ func ExecuteUpdate(sqlDB *sql.DB, query string) (int64, error) {
 }
 
 // ExecuteDelete executes a DELETE statement and returns the number of affected rows
-func ExecuteDelete(sqlDB *sql.DB, query string) (int64, error) {
+func ExecuteDelete(ctx context.Context, sqlDB *sql.DB, query string) (int64, error) {
 	if err := ValidateQuery(query); err != nil {
 		return 0, err
 	}
-	result, err := sqlDB.Exec(query)
+	result, err := sqlDB.ExecContext(ctx, query)
 	if err != nil {
 		return 0, err
 	}
@@ -214,7 +214,7 @@ func ExecuteRaw(ctx context.Context, sqlDB *sql.DB, query string) (*ExecutionRes
 	if err != nil {
 		// Fall back to DML execution for INSERT/UPDATE/DELETE
 		// Try INSERT first
-		rowsAffected, execErr := ExecuteInsert(sqlDB, query)
+		rowsAffected, execErr := ExecuteInsert(ctx, sqlDB, query)
 		if execErr == nil {
 			return &ExecutionResult{
 				RowCount: int(rowsAffected),
@@ -222,7 +222,7 @@ func ExecuteRaw(ctx context.Context, sqlDB *sql.DB, query string) (*ExecutionRes
 		}
 
 		// Try UPDATE
-		rowsAffected, execErr = ExecuteUpdate(sqlDB, query)
+		rowsAffected, execErr = ExecuteUpdate(ctx, sqlDB, query)
 		if execErr == nil {
 			return &ExecutionResult{
 				RowCount: int(rowsAffected),
@@ -230,7 +230,7 @@ func ExecuteRaw(ctx context.Context, sqlDB *sql.DB, query string) (*ExecutionRes
 		}
 
 		// Try DELETE
-		rowsAffected, execErr = ExecuteDelete(sqlDB, query)
+		rowsAffected, execErr = ExecuteDelete(ctx, sqlDB, query)
 		if execErr == nil {
 			return &ExecutionResult{
 				RowCount: int(rowsAffected),
