@@ -92,7 +92,7 @@ func (p *PlaygroundMode) handleCreateTable(ctx context.Context, stmt *sqlparser.
 	// Schema is guaranteed initialized by NewSession constructor
 	p.session.Schema.Tables = append(p.session.Schema.Tables, *tableSchema)
 
-	// persist schema changes to Redis
+	// persist schema changes to session
 	if err := p.sessionManager.UpdateSession(p.session); err != nil {
 		return nil, fmt.Errorf("failed to update session: %w", err)
 	}
