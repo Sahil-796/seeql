@@ -19,6 +19,7 @@ func Setup(r *gin.Engine) {
 	handlers.SessionManager = db.NewSessionManager(dataDir)
 
 	go handlers.SessionManager.CleanupOrphanedDBs()
+	handlers.SessionManager.StartCleanup()
 
 	r.POST("/quick-run", middleware.RateLimitMiddleware(rate.Every(12*time.Second), 2), handlers.QuickRun)
 	r.POST("/generate", middleware.RateLimitMiddleware(rate.Every(6*time.Second), 3), handlers.GenerateData)

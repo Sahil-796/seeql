@@ -4,15 +4,40 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/time/rate"
 )
 
+const visitorTTL = 10 * time.Minute
+
+type visitor struct {
+	limiter  *rate.Limiter
+	lastSeen time.Time
+}
+
 var (
-	visitors = make(map[string]*rate.Limiter)
+	visitors = make(map[string]*visitor)
 	mu       sync.RWMutex
 )
+
+func init() {
+	go cleanupVisitors()
+}
+
+func cleanupVisitors() {
+	ticker := time.NewTicker(visitorTTL)
+	for range ticker.C {
+		mu.Lock()
+		for ip, v := range visitors {
+			if time.Since(v.lastSeen) > visitorTTL {
+				delete(visitors, ip)
+			}
+		}
+		mu.Unlock()
+	}
+}
 
 func getClientIP(c *gin.Context) string {
 	forwarded := c.GetHeader("X-Forwarded-For")
@@ -33,11 +58,12 @@ func getLimiter(ip string, r rate.Limit, b int) *rate.Limiter {
 	mu.Lock()
 	defer mu.Unlock()
 
-	if l, exists := visitors[ip]; exists {
-		return l
+	if v, exists := visitors[ip]; exists {
+		v.lastSeen = time.Now()
+		return v.limiter
 	}
 	limiter := rate.NewLimiter(r, b)
-	visitors[ip] = limiter
+	visitors[ip] = &visitor{limiter: limiter, lastSeen: time.Now()}
 	return limiter
 }
 
