@@ -168,12 +168,12 @@ Seeql is a SQL testing/debugging tool with two modes:
 ### High
 
 - [x] **No SQLite PRAGMAs** (`session.go:56`) — no WAL mode (readers block writers), no `busy_timeout` (SQLITE_BUSY instead of retry), no `foreign_keys=ON` (FK constraints ignored by SQLite).
-- [ ] **DML has no context/timeout** (`execute.go:161-194`) — `ExecuteInsert/Update/Delete` call `sqlDB.Exec()` not `ExecContext()`. The 30s handler timeout never reaches DML.
-- [ ] **Missing `rows.Err()` check** (`execute.go:57`) — after `rows.Next()` loop, partial results returned silently on mid-iteration errors.
+- [x] **DML has no context/timeout** (`execute.go:161-194`) — `ExecuteInsert/Update/Delete` call `sqlDB.Exec()` not `ExecContext()`. The 30s handler timeout never reaches DML.
+- [x] **Missing `rows.Err()` check** (`execute.go:57`) — after `rows.Next()` loop, partial results returned silently on mid-iteration errors.
 
 ### Medium
 
-- [ ] **SQL identifiers not quoted** (`execute.go:80,121,136,153`) — table/column names interpolated raw via `fmt.Sprintf`. Should use `"%s"` quoting.
+- [x] **SQL identifiers not quoted** (`execute.go:80,121,136,153`) — table/column names interpolated raw via `fmt.Sprintf`. Should use `"%s"` quoting.
 - [ ] **Cap RowsPerTable** (`generate.go:29`) — lower bound checked, no upper bound. Client can request millions of rows. Cap to 20.
 - [ ] **Cap total sessions** (`session.go`) — `CreateSession` has no limit. Trivial DoS via `POST /playground/session` in a loop.
 - [ ] **`ExecuteRaw` double-execute** (`execute.go:197-228`) — tries Query, then Insert, then Update, then Delete on failure. DML can execute multiple times.

@@ -39,6 +39,18 @@ func (p *PlaygroundMode) Run(ctx context.Context, query string) (*QueryResult, e
 		return p.handleUpdate(ctx, query)
 	case *sqlparser.Delete:
 		return p.handleDelete(ctx, query)
+	case *sqlparser.AlterTable:
+		return p.handleAlterTable(ctx, stmt)
+	case *sqlparser.DropTable:
+		return p.handleDropTable(ctx, stmt)
+
+	// case *sqlparser.CreateIndex:
+	// 	return p.handleCreateIndex(ctx, stmt)
+	// case *sqlparser.DropIndex:
+	// 	return p.handleDropIndex(ctx, stmt)
+	// case *sqlparser.RenameIndex:
+	// 	return p.handleRenameIndex(ctx, stmt)
+
 	default:
 		return p.executeRaw(ctx, query)
 	}
@@ -153,6 +165,110 @@ func (p *PlaygroundMode) handleDelete(ctx context.Context, query string) (*Query
 		RowCount: int(rowsAffected),
 		Schema:   p.session.Schema,
 	}, nil
+}
+
+func (p *PlaygroundMode) handleAlterTable(ctx context.Context, stmt *sqlparser.AlterTable) (*QueryResult, error) {
+	tableName := stmt.Table.Name.String()
+
+	query := sqlparser.String(stmt)
+	if err := db.AlterTable(ctx, p.session.DB, query); err != nil {
+		return nil, err
+	}
+
+	p.session.Mu.Lock()
+	for _, opt := range stmt.AlterOptions {
+		switch alt := opt.(type) {
+		case *sqlparser.AddColumns:
+			for _, col := range alt.Columns {
+				colType := "TEXT"
+				if col.Type != nil {
+					colType = col.Type.Type
+				}
+				newCol := schema.ColumnSchema{
+					Name:     col.Name.String(),
+					Type:     colType,
+					Nullable: true,
+				}
+				p.addColumnToTable(tableName, newCol)
+			}
+		case *sqlparser.DropColumn:
+			p.removeColumnFromTable(tableName, alt.Name.Name.String())
+		case *sqlparser.RenameTableName:
+			p.renameTable(tableName, alt.Table.Name.String())
+		}
+	}
+	p.session.Mu.Unlock()
+
+	if err := p.sessionManager.UpdateSession(p.session); err != nil {
+		return nil, fmt.Errorf("failed to update session: %w", err)
+	}
+
+	return &QueryResult{
+		RowCount: 0,
+		Schema:   p.session.Schema,
+	}, nil
+}
+
+func (p *PlaygroundMode) handleDropTable(ctx context.Context, stmt *sqlparser.DropTable) (*QueryResult, error) {
+	query := sqlparser.String(stmt)
+	if err := db.DropTableExec(ctx, p.session.DB, query); err != nil {
+		return nil, err
+	}
+
+	// Remove tables from in-memory schema
+	p.session.Mu.Lock()
+	for _, tbl := range stmt.FromTables {
+		name := tbl.Name.String()
+		for i, t := range p.session.Schema.Tables {
+			if t.Name == name {
+				p.session.Schema.Tables = append(p.session.Schema.Tables[:i], p.session.Schema.Tables[i+1:]...)
+				break
+			}
+		}
+	}
+	p.session.Mu.Unlock()
+
+	if err := p.sessionManager.UpdateSession(p.session); err != nil {
+		return nil, fmt.Errorf("failed to update session: %w", err)
+	}
+
+	return &QueryResult{
+		RowCount: 0,
+		Schema:   p.session.Schema,
+	}, nil
+}
+
+// schema helper methods — called with session.Mu held
+
+func (p *PlaygroundMode) addColumnToTable(tableName string, col schema.ColumnSchema) {
+	for i, t := range p.session.Schema.Tables {
+		if t.Name == tableName {
+			p.session.Schema.Tables[i].Columns = append(p.session.Schema.Tables[i].Columns, col)
+			return
+		}
+	}
+}
+
+func (p *PlaygroundMode) removeColumnFromTable(tableName, colName string) {
+	for i, t := range p.session.Schema.Tables {
+		if t.Name == tableName {
+			for j, c := range t.Columns {
+				if c.Name == colName {
+					p.session.Schema.Tables[i].Columns = append(t.Columns[:j], t.Columns[j+1:]...)
+					return
+				}
+			}
+		}
+	}
+}
+
+func (p *PlaygroundMode) renameTable(oldName, newName string) {
+	for i, t := range p.session.Schema.Tables {
+		if t.Name == oldName {
+			p.session.Schema.Tables[i].Name = newName
+			return
+		}
+	}
 }
 
 func (p *PlaygroundMode) executeRaw(ctx context.Context, query string) (*QueryResult, error) {

@@ -70,6 +70,10 @@ func ExecuteQuery(ctx context.Context, sqlDB *sql.DB, query string) (*ExecutionR
 		results = append(results, row)
 	}
 
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate rows: %w", err)
+	}
+
 	return &ExecutionResult{
 		Columns:  columns,
 		Rows:     results,
@@ -166,6 +170,24 @@ func AddColumn(sqlDB *sql.DB, tableName string, col *schema.ColumnSchema) error 
 	sqlType := mapToSQLiteType(col.Type)
 	query := fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", tableName, col.Name, sqlType)
 	_, err := sqlDB.Exec(query)
+	return err
+}
+
+// AlterTable executes an ALTER TABLE statement
+func AlterTable(ctx context.Context, sqlDB *sql.DB, query string) error {
+	if err := ValidateQuery(query); err != nil {
+		return err
+	}
+	_, err := sqlDB.ExecContext(ctx, query)
+	return err
+}
+
+// DropTableExec executes a DROP TABLE statement
+func DropTableExec(ctx context.Context, sqlDB *sql.DB, query string) error {
+	if err := ValidateQuery(query); err != nil {
+		return err
+	}
+	_, err := sqlDB.ExecContext(ctx, query)
 	return err
 }
 
