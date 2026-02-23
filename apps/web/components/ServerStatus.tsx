@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   Tooltip,
   TooltipContent,
@@ -13,7 +20,23 @@ type Status = "checking" | "online" | "offline";
 const POLL_INTERVAL = 10_000;
 const INITIAL_DELAY = 500;
 
-export function ServerStatus() {
+type ServerStatusContextType = {
+  status: Status;
+  isServerOnline: boolean;
+};
+
+const ServerStatusContext = createContext<ServerStatusContextType>({
+  status: "checking",
+  isServerOnline: false,
+});
+
+export function useServerStatus() {
+  return useContext(ServerStatusContext);
+}
+
+export function ServerStatusProvider({
+  children,
+}: { children: React.ReactNode }) {
   const [status, setStatus] = useState<Status>("checking");
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
   const [coldStartElapsed, setColdStartElapsed] = useState(0);
@@ -28,18 +51,11 @@ export function ServerStatus() {
       checkingStartTime.current = 0;
       setColdStartElapsed(0);
     } catch {
-      setStatus((prev) =>
-        prev === "checking"
-          ? "offline"
-          : prev === "online"
-            ? "offline"
-            : "offline",
-      );
+      setStatus("offline");
       setLastChecked(new Date());
     }
   }, []);
 
-  // Polling loop
   useEffect(() => {
     const initialTimer = setTimeout(check, INITIAL_DELAY);
     const pollTimer = setInterval(check, POLL_INTERVAL);
@@ -50,7 +66,6 @@ export function ServerStatus() {
     };
   }, [check]);
 
-  // Track elapsed time during cold start
   useEffect(() => {
     if (status === "checking" || status === "offline") {
       if (!checkingStartTime.current) {
@@ -125,58 +140,63 @@ export function ServerStatus() {
     setHiding(false);
   }, [status]);
 
-  if (!visible) return null;
-
   return (
-    <div
-      className={`
-        w-full border-b transition-all duration-500
-        ${c.bg}
-        ${hiding ? "opacity-0 max-h-0 border-b-0 overflow-hidden" : "opacity-100 max-h-12"}
-      `}
-    >
-      <div className="flex items-center justify-center gap-2 px-4 py-1.5 text-xs font-medium">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div className={`flex items-center gap-2 cursor-default ${c.text}`}>
-              <span className="relative flex h-2 w-2">
-                {status !== "online" && (
-                  <span
-                    className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 ${c.dot}`}
-                  />
-                )}
-                <span
-                  className={`relative inline-flex h-2 w-2 rounded-full ${c.dot}`}
-                />
-              </span>
-              <span>
-                {c.label}
-                {status !== "online" && coldStartElapsed > 0 && (
-                  <span className="ml-1 tabular-nums">
-                    ({coldStartElapsed}s)
+    <ServerStatusContext value={{ status, isServerOnline: status === "online" }}>
+      {visible && (
+        <div
+          className={`
+            w-full border-b transition-all duration-500
+            ${c.bg}
+            ${hiding ? "opacity-0 max-h-0 border-b-0 overflow-hidden" : "opacity-100 max-h-12"}
+          `}
+        >
+          <div className="flex items-center justify-center gap-2 px-4 py-1.5 text-xs font-medium">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div
+                  className={`flex items-center gap-2 cursor-default ${c.text}`}
+                >
+                  <span className="relative flex h-2 w-2">
+                    {status !== "online" && (
+                      <span
+                        className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 ${c.dot}`}
+                      />
+                    )}
+                    <span
+                      className={`relative inline-flex h-2 w-2 rounded-full ${c.dot}`}
+                    />
                   </span>
-                )}
-              </span>
-            </div>
-          </TooltipTrigger>
-          <TooltipContent
-            side="bottom"
-            className="max-w-xs bg-popover text-popover-foreground border shadow-md"
-          >
-            <div className="space-y-1 py-1">
-              <p className="font-semibold text-xs">{c.tooltipTitle}</p>
-              <p className="text-[11px] leading-relaxed text-muted-foreground">
-                {c.tooltipBody}
-              </p>
-              {lastChecked && (
-                <p className="text-[10px] text-muted-foreground/70 pt-0.5">
-                  Last checked: {lastChecked.toLocaleTimeString()}
-                </p>
-              )}
-            </div>
-          </TooltipContent>
-        </Tooltip>
-      </div>
-    </div>
+                  <span>
+                    {c.label}
+                    {status !== "online" && coldStartElapsed > 0 && (
+                      <span className="ml-1 tabular-nums">
+                        ({coldStartElapsed}s)
+                      </span>
+                    )}
+                  </span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent
+                side="bottom"
+                className="max-w-xs bg-popover text-popover-foreground border shadow-md"
+              >
+                <div className="space-y-1 py-1">
+                  <p className="font-semibold text-xs">{c.tooltipTitle}</p>
+                  <p className="text-[11px] leading-relaxed text-muted-foreground">
+                    {c.tooltipBody}
+                  </p>
+                  {lastChecked && (
+                    <p className="text-[10px] text-muted-foreground/70 pt-0.5">
+                      Last checked: {lastChecked.toLocaleTimeString()}
+                    </p>
+                  )}
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        </div>
+      )}
+      {children}
+    </ServerStatusContext>
   );
 }

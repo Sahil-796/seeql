@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useServerStatus } from "@/components/ServerStatus";
 import { SQLEditor } from "@/components/SQLEditor";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { Badge } from "@/components/ui/badge";
@@ -73,6 +74,9 @@ type ColumnDef = {
   nullable: boolean;
   primary: boolean;
   unique: boolean;
+  foreignKey: boolean;
+  refTable: string;
+  refColumn: string;
 };
 
 type TableDef = {
@@ -244,6 +248,11 @@ function buildCreateTableSql(table: TableDef) {
     if (col.primary) parts.push("PRIMARY KEY");
     if (!col.nullable) parts.push("NOT NULL");
     if (col.unique && !col.primary) parts.push("UNIQUE");
+    if (col.foreignKey && col.refTable && col.refColumn) {
+      parts.push(
+        `REFERENCES ${quoteIdentifier(col.refTable)}(${quoteIdentifier(col.refColumn)})`,
+      );
+    }
     return parts.join(" ");
   });
 
@@ -276,103 +285,186 @@ function ColumnRow({
   column,
   onUpdate,
   onRemove,
+  tables,
 }: {
   column: ColumnDef;
   onUpdate: (updater: (col: ColumnDef) => ColumnDef) => void;
   onRemove: () => void;
+  tables: TableDef[];
 }) {
+  const refTableDef = tables.find((t) => t.name === column.refTable);
+
   return (
-    <div className="group flex items-center gap-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
-      <Input
-        value={column.name}
-        onChange={(e) =>
-          onUpdate((prev) => ({ ...prev, name: toIdentifier(e.target.value) }))
-        }
-        className="flex-1 h-8 text-sm"
-        placeholder="Column name"
-      />
-      <Select
-        value={column.type}
-        onValueChange={(value) =>
-          onUpdate((prev) => ({ ...prev, type: value as ColumnType }))
-        }
-      >
-        <SelectTrigger className="w-32 h-8" size="sm">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {COLUMN_TYPES.map((type) => (
-            <SelectItem key={type} value={type}>
-              {type}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-1.5">
-          <Checkbox
-            id={`${column.id}-notnull`}
-            checked={!column.nullable}
-            onCheckedChange={(checked) =>
-              onUpdate((prev) => ({ ...prev, nullable: !checked }))
-            }
-          />
-          <Label
-            htmlFor={`${column.id}-notnull`}
-            className="text-xs text-muted-foreground cursor-pointer"
-          >
-            NOT NULL
-          </Label>
+    <div className="group space-y-2 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
+      <div className="flex items-center gap-3">
+        <Input
+          value={column.name}
+          onChange={(e) =>
+            onUpdate((prev) => ({ ...prev, name: e.target.value }))
+          }
+          onBlur={(e) =>
+            onUpdate((prev) => ({
+              ...prev,
+              name: toIdentifier(e.target.value),
+            }))
+          }
+          className="flex-1 h-8 text-sm"
+          placeholder="Column name"
+        />
+        <Select
+          value={column.type}
+          onValueChange={(value) =>
+            onUpdate((prev) => ({ ...prev, type: value as ColumnType }))
+          }
+        >
+          <SelectTrigger className="w-32 h-8" size="sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {COLUMN_TYPES.map((type) => (
+              <SelectItem key={type} value={type}>
+                {type}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1.5">
+            <Checkbox
+              id={`${column.id}-notnull`}
+              checked={!column.nullable}
+              onCheckedChange={(checked) =>
+                onUpdate((prev) => ({ ...prev, nullable: !checked }))
+              }
+            />
+            <Label
+              htmlFor={`${column.id}-notnull`}
+              className="text-xs text-muted-foreground cursor-pointer"
+            >
+              NOT NULL
+            </Label>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Checkbox
+              id={`${column.id}-pk`}
+              checked={column.primary}
+              onCheckedChange={(checked) =>
+                onUpdate((prev) => ({
+                  ...prev,
+                  primary: !!checked,
+                  unique: checked ? true : prev.unique,
+                }))
+              }
+            />
+            <Label
+              htmlFor={`${column.id}-pk`}
+              className="text-xs text-muted-foreground cursor-pointer"
+            >
+              PK
+            </Label>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Checkbox
+              id={`${column.id}-unique`}
+              checked={column.unique}
+              onCheckedChange={(checked) =>
+                onUpdate((prev) => ({ ...prev, unique: !!checked }))
+              }
+            />
+            <Label
+              htmlFor={`${column.id}-unique`}
+              className="text-xs text-muted-foreground cursor-pointer"
+            >
+              UNIQUE
+            </Label>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Checkbox
+              id={`${column.id}-fk`}
+              checked={column.foreignKey}
+              onCheckedChange={(checked) =>
+                onUpdate((prev) => ({
+                  ...prev,
+                  foreignKey: !!checked,
+                  refTable: checked ? prev.refTable : "",
+                  refColumn: checked ? prev.refColumn : "",
+                }))
+              }
+            />
+            <Label
+              htmlFor={`${column.id}-fk`}
+              className="text-xs text-muted-foreground cursor-pointer"
+            >
+              FK
+            </Label>
+          </div>
         </div>
-        <div className="flex items-center gap-1.5">
-          <Checkbox
-            id={`${column.id}-pk`}
-            checked={column.primary}
-            onCheckedChange={(checked) =>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+          onClick={onRemove}
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+      {column.foreignKey && (
+        <div className="flex items-center gap-2 pl-1">
+          <span className="text-xs text-muted-foreground whitespace-nowrap">
+            References
+          </span>
+          <Select
+            value={column.refTable}
+            onValueChange={(value) =>
               onUpdate((prev) => ({
                 ...prev,
-                primary: !!checked,
-                unique: checked ? true : prev.unique,
+                refTable: value,
+                refColumn: "",
               }))
             }
-          />
-          <Label
-            htmlFor={`${column.id}-pk`}
-            className="text-xs text-muted-foreground cursor-pointer"
           >
-            PK
-          </Label>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <Checkbox
-            id={`${column.id}-unique`}
-            checked={column.unique}
-            onCheckedChange={(checked) =>
-              onUpdate((prev) => ({ ...prev, unique: !!checked }))
+            <SelectTrigger className="w-36 h-7" size="sm">
+              <SelectValue placeholder="Table" />
+            </SelectTrigger>
+            <SelectContent>
+              {tables.map((t) => (
+                <SelectItem key={t.id} value={t.name}>
+                  {t.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <span className="text-xs text-muted-foreground">.</span>
+          <Select
+            value={column.refColumn}
+            onValueChange={(value) =>
+              onUpdate((prev) => ({ ...prev, refColumn: value }))
             }
-          />
-          <Label
-            htmlFor={`${column.id}-unique`}
-            className="text-xs text-muted-foreground cursor-pointer"
           >
-            UNIQUE
-          </Label>
+            <SelectTrigger className="w-36 h-7" size="sm">
+              <SelectValue placeholder="Column" />
+            </SelectTrigger>
+            <SelectContent>
+              {refTableDef?.columns.map((c) => (
+                <SelectItem key={c.id} value={c.name}>
+                  {c.name}
+                </SelectItem>
+              )) ?? (
+                <SelectItem value="" disabled>
+                  Select a table first
+                </SelectItem>
+              )}
+            </SelectContent>
+          </Select>
         </div>
-      </div>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-        onClick={onRemove}
-      >
-        <X className="h-4 w-4" />
-      </Button>
+      )}
     </div>
   );
 }
 
 function TableCard({
   table,
+  tables,
   onUpdate,
   onRemove,
   onAddColumn,
@@ -381,6 +473,7 @@ function TableCard({
   isCreated,
 }: {
   table: TableDef;
+  tables: TableDef[];
   onUpdate: (updater: (t: TableDef) => TableDef) => void;
   onRemove: () => void;
   onAddColumn: () => void;
@@ -413,6 +506,12 @@ function TableCard({
             <Input
               value={table.name}
               onChange={(e) =>
+                onUpdate((prev) => ({
+                  ...prev,
+                  name: e.target.value,
+                }))
+              }
+              onBlur={(e) =>
                 onUpdate((prev) => ({
                   ...prev,
                   name: toIdentifier(e.target.value),
@@ -462,6 +561,7 @@ function TableCard({
             column={column}
             onUpdate={(updater) => onUpdateColumn(column.id, updater)}
             onRemove={() => onRemoveColumn(column.id)}
+            tables={tables}
           />
         ))}
         {table.columns.length === 0 && (
@@ -630,6 +730,7 @@ type SessionTable = {
 
 // Main Component
 export default function PlaygroundPage() {
+  const { isServerOnline } = useServerStatus();
   const [tables, setTables] = useState<TableDef[]>(DEFAULT_TABLES);
   const [rowsByTable, setRowsByTable] = useState<Record<string, RowDef[]>>({});
   const [rowsPerTable, setRowsPerTable] = useState(5);
@@ -860,6 +961,9 @@ export default function PlaygroundPage() {
           nullable: false,
           primary: true,
           unique: true,
+          foreignKey: false,
+          refTable: "",
+          refColumn: "",
         },
         {
           id: createId("c"),
@@ -868,6 +972,9 @@ export default function PlaygroundPage() {
           nullable: false,
           primary: false,
           unique: false,
+          foreignKey: false,
+          refTable: "",
+          refColumn: "",
         },
       ],
     };
@@ -897,6 +1004,9 @@ export default function PlaygroundPage() {
         nullable: true,
         primary: false,
         unique: false,
+        foreignKey: false,
+        refTable: "",
+        refColumn: "",
       };
       const nextTable = { ...table, columns: [...table.columns, nextColumn] };
       syncRowsWithColumns(nextTable);
@@ -1178,7 +1288,7 @@ export default function PlaygroundPage() {
                     variant="default"
                     size="sm"
                     onClick={handleCreateSession}
-                    disabled={isSessionLoading}
+                    disabled={isSessionLoading || !isServerOnline}
                   >
                     {isSessionLoading ? (
                       <Loader2 className="h-4 w-4 mr-1 animate-spin" />
@@ -1212,7 +1322,7 @@ export default function PlaygroundPage() {
       <main className="h-[calc(100vh-3.5rem)]">
         <ResizablePanelGroup direction="horizontal" className="h-full">
           {/* Left Panel - Schema & Builder */}
-          <ResizablePanel defaultSize={35} minSize={25}>
+          <ResizablePanel defaultSize={50} minSize={25}>
             <div className="h-full overflow-auto">
               {/* Tab Switcher */}
               <div className="sticky top-0 z-10 bg-background border-b">
@@ -1286,7 +1396,7 @@ export default function PlaygroundPage() {
                             </p>
                             <Button
                               onClick={handleCreateSession}
-                              disabled={isSessionLoading}
+                              disabled={isSessionLoading || !isServerOnline}
                             >
                               {isSessionLoading ? (
                                 <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
@@ -1547,6 +1657,7 @@ export default function PlaygroundPage() {
                               <div key={table.id} className="space-y-2">
                                 <TableCard
                                   table={table}
+                                  tables={tables}
                                   onUpdate={(updater) =>
                                     updateTable(table.id, updater)
                                   }
@@ -1660,7 +1771,7 @@ export default function PlaygroundPage() {
                             size="sm"
                             className="mt-2 w-full"
                             onClick={handleCreateSession}
-                            disabled={isSessionLoading}
+                            disabled={isSessionLoading || !isServerOnline}
                           >
                             {isSessionLoading ? (
                               <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
@@ -1681,7 +1792,7 @@ export default function PlaygroundPage() {
           <ResizableHandle withHandle />
 
           {/* Right Panel - Query & Results */}
-          <ResizablePanel defaultSize={65} minSize={40}>
+          <ResizablePanel defaultSize={50} minSize={40}>
             <div className="h-full flex flex-col">
               {/* Query Section */}
               <div className="p-6 border-b space-y-4">
