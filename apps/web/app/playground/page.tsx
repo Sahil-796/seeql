@@ -1,30 +1,36 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
 import {
-  Plus,
-  Trash2,
-  Play,
-  Copy,
   Check,
+  ChevronDown,
+  Code,
+  Copy,
+  Database,
+  Hammer,
+  Loader2,
+  Play,
+  Plus,
   Sparkles,
   Table as TableIcon,
-  Database,
-  Code,
-  ChevronDown,
+  Trash2,
+  Upload,
   X,
-  Loader2,
 } from "lucide-react";
-import { api } from "@/lib/api";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { SQLEditor } from "@/components/SQLEditor";
+import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
 import {
   Select,
   SelectContent,
@@ -32,6 +38,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -40,13 +47,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  ResizablePanelGroup,
-  ResizablePanel,
-  ResizableHandle,
-} from "@/components/ui/resizable";
-import { ThemeSwitcher } from "@/components/ThemeSwitcher";
-import { SQLEditor } from "@/components/SQLEditor";
+import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 // Types
@@ -129,7 +130,12 @@ function randomUuid() {
   return `${s4()}${s4()}-${s4()}-${s4()}-${s4()}-${s4()}${s4()}${s4()}`;
 }
 
-function generateValue(column: ColumnDef, rowIndex: number, totalRows: number, tableIndex: number) {
+function generateValue(
+  column: ColumnDef,
+  rowIndex: number,
+  totalRows: number,
+  tableIndex: number,
+) {
   const name = column.name.toLowerCase();
 
   if (column.type === "INTEGER") {
@@ -178,7 +184,8 @@ function generateValue(column: ColumnDef, rowIndex: number, totalRows: number, t
   if (name.includes("name")) return `Sample Name ${rowIndex + 1}`;
   if (name.includes("title")) return `Title ${rowIndex + 1}`;
   if (name.includes("city")) return ["Orion", "Kepler", "Atria"][rowIndex % 3];
-  if (name.includes("status")) return ["new", "active", "archived"][rowIndex % 3];
+  if (name.includes("status"))
+    return ["new", "active", "archived"][rowIndex % 3];
 
   return `Value ${rowIndex + 1}`;
 }
@@ -278,13 +285,17 @@ function ColumnRow({
     <div className="group flex items-center gap-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
       <Input
         value={column.name}
-        onChange={(e) => onUpdate((prev) => ({ ...prev, name: toIdentifier(e.target.value) }))}
+        onChange={(e) =>
+          onUpdate((prev) => ({ ...prev, name: toIdentifier(e.target.value) }))
+        }
         className="flex-1 h-8 text-sm"
         placeholder="Column name"
       />
       <Select
         value={column.type}
-        onValueChange={(value) => onUpdate((prev) => ({ ...prev, type: value as ColumnType }))}
+        onValueChange={(value) =>
+          onUpdate((prev) => ({ ...prev, type: value as ColumnType }))
+        }
       >
         <SelectTrigger className="w-32 h-8" size="sm">
           <SelectValue />
@@ -302,9 +313,14 @@ function ColumnRow({
           <Checkbox
             id={`${column.id}-notnull`}
             checked={!column.nullable}
-            onCheckedChange={(checked) => onUpdate((prev) => ({ ...prev, nullable: !checked }))}
+            onCheckedChange={(checked) =>
+              onUpdate((prev) => ({ ...prev, nullable: !checked }))
+            }
           />
-          <Label htmlFor={`${column.id}-notnull`} className="text-xs text-muted-foreground cursor-pointer">
+          <Label
+            htmlFor={`${column.id}-notnull`}
+            className="text-xs text-muted-foreground cursor-pointer"
+          >
             NOT NULL
           </Label>
         </div>
@@ -320,7 +336,10 @@ function ColumnRow({
               }))
             }
           />
-          <Label htmlFor={`${column.id}-pk`} className="text-xs text-muted-foreground cursor-pointer">
+          <Label
+            htmlFor={`${column.id}-pk`}
+            className="text-xs text-muted-foreground cursor-pointer"
+          >
             PK
           </Label>
         </div>
@@ -328,9 +347,14 @@ function ColumnRow({
           <Checkbox
             id={`${column.id}-unique`}
             checked={column.unique}
-            onCheckedChange={(checked) => onUpdate((prev) => ({ ...prev, unique: !!checked }))}
+            onCheckedChange={(checked) =>
+              onUpdate((prev) => ({ ...prev, unique: !!checked }))
+            }
           />
-          <Label htmlFor={`${column.id}-unique`} className="text-xs text-muted-foreground cursor-pointer">
+          <Label
+            htmlFor={`${column.id}-unique`}
+            className="text-xs text-muted-foreground cursor-pointer"
+          >
             UNIQUE
           </Label>
         </div>
@@ -360,16 +384,26 @@ function TableCard({
   onUpdate: (updater: (t: TableDef) => TableDef) => void;
   onRemove: () => void;
   onAddColumn: () => void;
-  onUpdateColumn: (columnId: string, updater: (col: ColumnDef) => ColumnDef) => void;
+  onUpdateColumn: (
+    columnId: string,
+    updater: (col: ColumnDef) => ColumnDef,
+  ) => void;
   onRemoveColumn: (columnId: string) => void;
   isCreated?: boolean;
 }) {
   return (
-    <Card className={cn("overflow-hidden", isCreated && "ring-2 ring-green-500/30")}>
+    <Card
+      className={cn("overflow-hidden", isCreated && "ring-2 ring-green-500/30")}
+    >
       <CardHeader className="pb-3 bg-muted/30">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className={cn("p-2 rounded-lg", isCreated ? "bg-green-500/10" : "bg-primary/10")}>
+            <div
+              className={cn(
+                "p-2 rounded-lg",
+                isCreated ? "bg-green-500/10" : "bg-primary/10",
+              )}
+            >
               {isCreated ? (
                 <Check className="h-4 w-4 text-green-600" />
               ) : (
@@ -378,7 +412,12 @@ function TableCard({
             </div>
             <Input
               value={table.name}
-              onChange={(e) => onUpdate((prev) => ({ ...prev, name: toIdentifier(e.target.value) }))}
+              onChange={(e) =>
+                onUpdate((prev) => ({
+                  ...prev,
+                  name: toIdentifier(e.target.value),
+                }))
+              }
               className="w-48 h-8 font-medium"
               disabled={isCreated}
             />
@@ -386,13 +425,21 @@ function TableCard({
               {table.columns.length} columns
             </Badge>
             {isCreated && (
-              <Badge variant="outline" className="text-xs bg-green-500/10 text-green-600 border-green-500/30">
+              <Badge
+                variant="outline"
+                className="text-xs bg-green-500/10 text-green-600 border-green-500/30"
+              >
                 In Session
               </Badge>
             )}
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={onAddColumn} disabled={isCreated}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onAddColumn}
+              disabled={isCreated}
+            >
               <Plus className="h-3.5 w-3.5 mr-1.5" />
               Column
             </Button>
@@ -469,7 +516,10 @@ function DataPreviewTable({
           <TableBody>
             {rows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={table.columns.length + 1} className="text-center py-6 text-muted-foreground text-sm">
+                <TableCell
+                  colSpan={table.columns.length + 1}
+                  className="text-center py-6 text-muted-foreground text-sm"
+                >
                   No data yet. Use Auto-fill or add rows manually.
                 </TableCell>
               </TableRow>
@@ -482,7 +532,9 @@ function DataPreviewTable({
                     <TableCell key={col.id} className="p-1.5">
                       <Input
                         value={row[col.name] ?? ""}
-                        onChange={(e) => onUpdateRow(rowIndex, col.name, e.target.value)}
+                        onChange={(e) =>
+                          onUpdateRow(rowIndex, col.name, e.target.value)
+                        }
                         className="h-7 text-xs"
                       />
                     </TableCell>
@@ -525,7 +577,10 @@ function ResultsTable({ result }: { result: QueryResult | null }) {
         <TableHeader>
           <TableRow className="bg-muted/50">
             {columns.map((col) => (
-              <TableHead key={col} className="text-xs font-medium whitespace-nowrap">
+              <TableHead
+                key={col}
+                className="text-xs font-medium whitespace-nowrap"
+              >
                 {col}
               </TableHead>
             ))}
@@ -586,11 +641,18 @@ export default function PlaygroundPage() {
   const [isCopied, setIsCopied] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isSessionLoading, setIsSessionLoading] = useState(false);
-  const [activeDataTab, setActiveDataTab] = useState<string>(tables[0]?.id ?? "");
+  const [activeDataTab, setActiveDataTab] = useState<string>(
+    tables[0]?.id ?? "",
+  );
   const [executionLog, setExecutionLog] = useState<LogEntry[]>([]);
   const [sessionTables, setSessionTables] = useState<SessionTable[]>([]);
   const [isQueryValid, setIsQueryValid] = useState(true);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [leftPanelTab, setLeftPanelTab] = useState<"schema" | "builder">(
+    "schema",
+  );
+  const [isPushing, setIsPushing] = useState(false);
+  const [pushedTableIds, setPushedTableIds] = useState<Set<string>>(new Set());
 
   const addLog = (type: LogEntry["type"], message: string) => {
     setExecutionLog((prev) => [
@@ -620,7 +682,9 @@ export default function PlaygroundPage() {
 
   const sqlBundle = useMemo(() => {
     const createStatements = tables.map(buildCreateTableSql);
-    const insertStatements = tables.flatMap((table) => buildInsertSql(table, rowsByTable[table.id] ?? []));
+    const insertStatements = tables.flatMap((table) =>
+      buildInsertSql(table, rowsByTable[table.id] ?? []),
+    );
     return { createStatements, insertStatements };
   }, [tables, rowsByTable]);
 
@@ -632,7 +696,11 @@ export default function PlaygroundPage() {
   }, [query, tables]);
 
   const sqlBundleText = useMemo(() => {
-    return [...sqlBundle.createStatements, ...sqlBundle.insertStatements, derivedQuery]
+    return [
+      ...sqlBundle.createStatements,
+      ...sqlBundle.insertStatements,
+      derivedQuery,
+    ]
       .filter(Boolean)
       .join(";\n\n");
   }, [sqlBundle, derivedQuery]);
@@ -660,8 +728,12 @@ export default function PlaygroundPage() {
       setSessionId(created.session_id);
       setResult(null);
       setSessionTables([]);
+      setPushedTableIds(new Set());
       addLog("info", `Session started: ${created.session_id.slice(0, 8)}...`);
-      addLog("info", "Ready to run SQL. Use CREATE TABLE, INSERT, SELECT, etc.");
+      addLog(
+        "info",
+        "Ready to run SQL. Use CREATE TABLE, INSERT, SELECT, etc.",
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create session");
       setSessionId(null);
@@ -682,6 +754,7 @@ export default function PlaygroundPage() {
       setSessionId(null);
       setResult(null);
       setSessionTables([]);
+      setPushedTableIds(new Set());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to end session");
     } finally {
@@ -696,39 +769,54 @@ export default function PlaygroundPage() {
     setError(null);
 
     // Detect if this is a CREATE TABLE statement
-    const isCreateTable = derivedQuery.trim().toUpperCase().startsWith("CREATE TABLE");
+    const isCreateTable = derivedQuery
+      .trim()
+      .toUpperCase()
+      .startsWith("CREATE TABLE");
     const isInsert = derivedQuery.trim().toUpperCase().startsWith("INSERT");
 
     try {
-      const response = await api.executePlayground(sessionId, derivedQuery.replace(/;$/, ""));
+      const response = await api.executePlayground(
+        sessionId,
+        derivedQuery.replace(/;$/, ""),
+      );
       setResult(response);
 
       // Update session tables from schema if returned
       if (response.schema?.tables) {
-        setSessionTables(response.schema.tables.map((t) => ({
-          name: t.name,
-          columns: t.columns.map((c) => ({
-            name: c.name,
-            type: c.type,
-            is_primary: c.is_primary,
-            is_foreign: c.is_foreign,
-            ref_table: c.ref_table,
-            ref_column: c.ref_column,
+        setSessionTables(
+          response.schema.tables.map((t) => ({
+            name: t.name,
+            columns: t.columns.map((c) => ({
+              name: c.name,
+              type: c.type,
+              is_primary: c.is_primary,
+              is_foreign: c.is_foreign,
+              ref_table: c.ref_table,
+              ref_column: c.ref_column,
+            })),
           })),
-        })));
+        );
       }
 
       // Log appropriate message
       if (isCreateTable) {
         const tableCount = response.schema?.tables?.length ?? 0;
-        addLog("success", `Table created successfully! (${tableCount} table${tableCount !== 1 ? "s" : ""} in session)`);
+        addLog(
+          "success",
+          `Table created successfully! (${tableCount} table${tableCount !== 1 ? "s" : ""} in session)`,
+        );
       } else if (isInsert) {
         addLog("success", `Inserted ${response.row_count ?? 0} row(s)`);
       } else {
-        addLog("success", `Query executed: ${response.row_count ?? 0} rows returned`);
+        addLog(
+          "success",
+          `Query executed: ${response.row_count ?? 0} rows returned`,
+        );
       }
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : "Failed to run query";
+      const errorMsg =
+        err instanceof Error ? err.message : "Failed to run query";
       setError(errorMsg);
       addLog("error", `Query failed: ${errorMsg}`);
     } finally {
@@ -736,8 +824,13 @@ export default function PlaygroundPage() {
     }
   };
 
-  const updateTable = (tableId: string, updater: (table: TableDef) => TableDef) => {
-    setTables((prev) => prev.map((table) => (table.id === tableId ? updater(table) : table)));
+  const updateTable = (
+    tableId: string,
+    updater: (table: TableDef) => TableDef,
+  ) => {
+    setTables((prev) =>
+      prev.map((table) => (table.id === tableId ? updater(table) : table)),
+    );
   };
 
   const syncRowsWithColumns = (table: TableDef) => {
@@ -760,8 +853,22 @@ export default function PlaygroundPage() {
       id: createId("t"),
       name: `table_${tables.length + 1}`,
       columns: [
-        { id: createId("c"), name: "id", type: "INTEGER", nullable: false, primary: true, unique: true },
-        { id: createId("c"), name: "name", type: "TEXT", nullable: false, primary: false, unique: false },
+        {
+          id: createId("c"),
+          name: "id",
+          type: "INTEGER",
+          nullable: false,
+          primary: true,
+          unique: true,
+        },
+        {
+          id: createId("c"),
+          name: "name",
+          type: "TEXT",
+          nullable: false,
+          primary: false,
+          unique: false,
+        },
       ],
     };
     setTables((prev) => [...prev, newTable]);
@@ -808,16 +915,26 @@ export default function PlaygroundPage() {
     });
   };
 
-  const updateColumn = (tableId: string, columnId: string, updater: (column: ColumnDef) => ColumnDef) => {
+  const updateColumn = (
+    tableId: string,
+    columnId: string,
+    updater: (column: ColumnDef) => ColumnDef,
+  ) => {
     updateTable(tableId, (table) => {
-      const nextColumns = table.columns.map((column) => (column.id === columnId ? updater(column) : column));
+      const nextColumns = table.columns.map((column) =>
+        column.id === columnId ? updater(column) : column,
+      );
       const nextTable = { ...table, columns: nextColumns };
       syncRowsWithColumns(nextTable);
       return nextTable;
     });
   };
 
-  const generateRowsForTable = (table: TableDef, count: number, tableIndex: number) => {
+  const generateRowsForTable = (
+    table: TableDef,
+    count: number,
+    tableIndex: number,
+  ) => {
     const rows: RowDef[] = [];
     for (let i = 0; i < count; i += 1) {
       const row: RowDef = {};
@@ -832,24 +949,24 @@ export default function PlaygroundPage() {
   const handleGenerateData = async () => {
     // Build CREATE TABLE statements from current schema
     const createSql = tables.map(buildCreateTableSql).join(";\n");
-    
+
     if (!createSql) return;
-    
+
     setIsGenerating(true);
     setError(null);
-    
+
     try {
       const response = await api.generate(createSql, rowsPerTable);
-      
+
       if (response.error) {
         setError(response.error);
         return;
       }
-      
+
       if (response.data) {
         // Map API response to our rowsByTable format
         const newRowsByTable: Record<string, RowDef[]> = {};
-        
+
         for (const table of tables) {
           const tableData = response.data[table.name];
           if (tableData) {
@@ -857,7 +974,8 @@ export default function PlaygroundPage() {
               const rowDef: RowDef = {};
               for (const col of table.columns) {
                 const value = row[col.name];
-                rowDef[col.name] = value !== null && value !== undefined ? String(value) : "";
+                rowDef[col.name] =
+                  value !== null && value !== undefined ? String(value) : "";
               }
               return rowDef;
             });
@@ -865,7 +983,7 @@ export default function PlaygroundPage() {
             newRowsByTable[table.id] = [];
           }
         }
-        
+
         setRowsByTable(newRowsByTable);
       }
     } catch (err) {
@@ -898,7 +1016,12 @@ export default function PlaygroundPage() {
     });
   };
 
-  const updateRowValue = (tableId: string, rowIndex: number, columnName: string, value: string) => {
+  const updateRowValue = (
+    tableId: string,
+    rowIndex: number,
+    columnName: string,
+    value: string,
+  ) => {
     setRowsByTable((prev) => {
       const rows = [...(prev[tableId] ?? [])];
       const row = { ...(rows[rowIndex] ?? {}) };
@@ -923,6 +1046,85 @@ export default function PlaygroundPage() {
     setTimeout(() => setIsCopied(false), 1500);
   };
 
+  const handlePushToSession = async (tableId?: string) => {
+    if (!sessionId) return;
+
+    const tablesToPush = tableId
+      ? tables.filter((t) => t.id === tableId)
+      : tables.filter((t) => !pushedTableIds.has(t.id));
+
+    if (tablesToPush.length === 0) return;
+
+    setIsPushing(true);
+    setError(null);
+
+    const newPushedIds = new Set(pushedTableIds);
+
+    for (const table of tablesToPush) {
+      if (table.columns.length === 0) {
+        addLog("error", `Skipped "${table.name}" — no columns defined`);
+        continue;
+      }
+
+      // 1. CREATE TABLE
+      const createSql = buildCreateTableSql(table);
+      try {
+        const response = await api.executePlayground(sessionId, createSql);
+        if (response.schema?.tables) {
+          setSessionTables(
+            response.schema.tables.map((t) => ({
+              name: t.name,
+              columns: t.columns.map((c) => ({
+                name: c.name,
+                type: c.type,
+                is_primary: c.is_primary,
+                is_foreign: c.is_foreign,
+                ref_table: c.ref_table,
+                ref_column: c.ref_column,
+              })),
+            })),
+          );
+        }
+        addLog("success", `Created table "${table.name}"`);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Failed";
+        addLog("error", `Failed to create "${table.name}": ${msg}`);
+        setError(msg);
+        continue; // skip inserts if create failed
+      }
+
+      // 2. INSERT rows if any exist
+      const rows = rowsByTable[table.id] ?? [];
+      if (rows.length > 0) {
+        const insertStatements = buildInsertSql(table, rows);
+        for (const insertSql of insertStatements) {
+          try {
+            await api.executePlayground(sessionId, insertSql);
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : "Insert failed";
+            addLog("error", `Insert into "${table.name}" failed: ${msg}`);
+          }
+        }
+        if (insertStatements.length > 0) {
+          addLog(
+            "success",
+            `Inserted ${insertStatements.length} row(s) into "${table.name}"`,
+          );
+        }
+      }
+
+      newPushedIds.add(table.id);
+    }
+
+    setPushedTableIds(newPushedIds);
+    setIsPushing(false);
+    setLeftPanelTab("schema");
+  };
+
+  const handlePushSingleTable = async (tableId: string) => {
+    await handlePushToSession(tableId);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -930,16 +1132,23 @@ export default function PlaygroundPage() {
         <div className="flex h-14 items-center justify-between px-6">
           <div className="flex items-center gap-4">
             <Link href="/" className="flex items-center gap-2">
-              <span className="text-lg font-semibold tracking-tight">SeeQL</span>
+              <span className="text-lg font-semibold tracking-tight">
+                SeeQL
+              </span>
             </Link>
-            <Badge variant="secondary" className="font-normal">Playground</Badge>
+            <Badge variant="secondary" className="font-normal">
+              Playground
+            </Badge>
           </div>
           <div className="flex items-center gap-4">
             {/* Session Controls */}
             <div className="flex items-center gap-2">
               {sessionId ? (
                 <>
-                  <Badge variant="outline" className="text-xs font-mono bg-green-500/10 text-green-600 border-green-500/30">
+                  <Badge
+                    variant="outline"
+                    className="text-xs font-mono bg-green-500/10 text-green-600 border-green-500/30"
+                  >
                     Session Active
                   </Badge>
                   <Button
@@ -949,13 +1158,20 @@ export default function PlaygroundPage() {
                     disabled={isSessionLoading}
                     className="text-destructive hover:text-destructive"
                   >
-                    {isSessionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4 mr-1" />}
+                    {isSessionLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <X className="h-4 w-4 mr-1" />
+                    )}
                     End Session
                   </Button>
                 </>
               ) : (
                 <>
-                  <Badge variant="outline" className="text-xs text-muted-foreground">
+                  <Badge
+                    variant="outline"
+                    className="text-xs text-muted-foreground"
+                  >
                     No Session
                   </Badge>
                   <Button
@@ -964,7 +1180,11 @@ export default function PlaygroundPage() {
                     onClick={handleCreateSession}
                     disabled={isSessionLoading}
                   >
-                    {isSessionLoading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Play className="h-4 w-4 mr-1" />}
+                    {isSessionLoading ? (
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    ) : (
+                      <Play className="h-4 w-4 mr-1" />
+                    )}
                     Start Session
                   </Button>
                 </>
@@ -975,7 +1195,12 @@ export default function PlaygroundPage() {
               <Button variant="ghost" size="sm" asChild>
                 <Link href="/">Quick Mode</Link>
               </Button>
-              <Button variant="ghost" size="sm" className="text-foreground" asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-foreground"
+                asChild
+              >
                 <Link href="/playground">Playground</Link>
               </Button>
             </nav>
@@ -986,161 +1211,470 @@ export default function PlaygroundPage() {
       {/* Main Content */}
       <main className="h-[calc(100vh-3.5rem)]">
         <ResizablePanelGroup direction="horizontal" className="h-full">
-          {/* Left Panel - Session Schema */}
+          {/* Left Panel - Schema & Builder */}
           <ResizablePanel defaultSize={35} minSize={25}>
-            <div className="h-full overflow-auto p-6 space-y-6">
-              {/* Session Tables Section */}
-              <section>
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h2 className="text-lg font-semibold flex items-center gap-2">
-                      <Database className="h-5 w-5" />
-                      Session Schema
-                    </h2>
-                    <p className="text-sm text-muted-foreground mt-0.5">
-                      {sessionId ? "Tables in this session" : "Start a session to create tables"}
-                    </p>
-                  </div>
-                  {sessionTables.length > 0 && (
-                    <Badge variant="secondary">{sessionTables.length} table{sessionTables.length !== 1 ? "s" : ""}</Badge>
-                  )}
+            <div className="h-full overflow-auto">
+              {/* Tab Switcher */}
+              <div className="sticky top-0 z-10 bg-background border-b">
+                <div className="flex">
+                  <button
+                    type="button"
+                    onClick={() => setLeftPanelTab("schema")}
+                    className={cn(
+                      "flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2",
+                      leftPanelTab === "schema"
+                        ? "border-primary text-foreground"
+                        : "border-transparent text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    <Database className="h-4 w-4" />
+                    Session Schema
+                    {sessionTables.length > 0 && (
+                      <Badge
+                        variant="secondary"
+                        className="text-[10px] px-1.5 py-0 h-4"
+                      >
+                        {sessionTables.length}
+                      </Badge>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLeftPanelTab("builder")}
+                    className={cn(
+                      "flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2",
+                      leftPanelTab === "builder"
+                        ? "border-primary text-foreground"
+                        : "border-transparent text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    <Hammer className="h-4 w-4" />
+                    Schema Builder
+                    {tables.length > 0 && (
+                      <Badge
+                        variant="secondary"
+                        className="text-[10px] px-1.5 py-0 h-4"
+                      >
+                        {tables.length}
+                      </Badge>
+                    )}
+                  </button>
                 </div>
+              </div>
 
-                {!sessionId ? (
-                  <Card className="border-dashed">
-                    <CardContent className="p-6 text-center">
-                      <Database className="h-10 w-10 mx-auto mb-3 text-muted-foreground/50" />
-                      <p className="text-sm text-muted-foreground mb-4">
-                        No active session. Start a session to create tables and run queries.
-                      </p>
-                      <Button onClick={handleCreateSession} disabled={isSessionLoading}>
-                        {isSessionLoading ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Play className="h-4 w-4 mr-1.5" />}
-                        Start Session
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ) : isSessionLoading ? (
-                  <div className="space-y-3">
-                    <Card className="overflow-hidden">
-                      <CardHeader className="pb-2 bg-muted/30">
-                        <div className="flex items-center gap-3">
-                          <Skeleton className="h-7 w-7 rounded-md" />
-                          <Skeleton className="h-4 w-24" />
-                          <Skeleton className="h-5 w-12 ml-auto rounded-full" />
-                        </div>
-                      </CardHeader>
-                      <CardContent className="p-3 space-y-1.5">
-                        <Skeleton className="h-6 w-full rounded" />
-                        <Skeleton className="h-6 w-full rounded" />
-                        <Skeleton className="h-6 w-3/4 rounded" />
-                      </CardContent>
-                    </Card>
-                  </div>
-                ) : sessionTables.length === 0 ? (
-                  <Card className="border-dashed">
-                    <CardContent className="p-6 text-center">
-                      <TableIcon className="h-10 w-10 mx-auto mb-3 text-muted-foreground/50" />
-                      <p className="text-sm text-muted-foreground mb-2">
-                        No tables yet. Run a CREATE TABLE statement.
-                      </p>
-                      <p className="text-xs text-muted-foreground font-mono">
-                        CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT);
-                      </p>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  <div className="space-y-3">
-                    {sessionTables.map((table) => (
-                      <Card key={table.name} className="overflow-hidden">
-                        <CardHeader className="pb-2 bg-green-500/5 border-b border-green-500/20">
-                          <div className="flex items-center gap-3">
-                            <div className="p-1.5 rounded-md bg-green-500/10">
-                              <Check className="h-3.5 w-3.5 text-green-600" />
-                            </div>
-                            <span className="font-medium font-mono text-sm">{table.name}</span>
-                            <Badge variant="outline" className="text-xs ml-auto">
-                              {table.columns.length} col{table.columns.length !== 1 ? "s" : ""}
-                            </Badge>
-                          </div>
-                        </CardHeader>
-                        <CardContent className="p-3">
-                          <div className="space-y-1">
-                            {table.columns.map((col) => (
-                              <div
-                                key={col.name}
-                                className="flex items-center gap-2 text-xs font-mono px-2 py-1 rounded bg-muted/50"
-                              >
-                                <span className={cn(
-                                  "font-medium",
-                                  col.is_primary && "text-amber-600",
-                                  col.is_foreign && !col.is_primary && "text-blue-600"
-                                )}>
-                                  {col.name}
-                                </span>
-                                <span className="text-muted-foreground">{col.type}</span>
-                                <div className="flex gap-1 ml-auto">
-                                  {col.is_primary && (
-                                    <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 bg-amber-500/10 border-amber-500/30">
-                                      PK
-                                    </Badge>
-                                  )}
-                                  {col.is_foreign && (
-                                    <Badge 
-                                      variant="outline" 
-                                      className="text-[10px] px-1 py-0 h-4 bg-blue-500/10 border-blue-500/30"
-                                      title={col.ref_table && col.ref_column ? `References ${col.ref_table}.${col.ref_column}` : "Foreign Key"}
-                                    >
-                                      FK{col.ref_table ? ` → ${col.ref_table}` : ""}
-                                    </Badge>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                )}
-              </section>
-
-              {/* Execution Log Section */}
-              {executionLog.length > 0 && (
-                <section>
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-semibold flex items-center gap-2">
-                      <Code className="h-5 w-5" />
-                      Execution Log
-                    </h2>
-                    <Button variant="ghost" size="sm" onClick={clearLog}>
-                      <X className="h-4 w-4 mr-1" />
-                      Clear
-                    </Button>
-                  </div>
-                  <Card>
-                    <CardContent className="p-3 max-h-48 overflow-auto">
-                      <div className="space-y-1.5 font-mono text-xs">
-                        {executionLog.map((entry) => (
-                          <div
-                            key={entry.id}
-                            className={cn(
-                              "flex items-start gap-2 px-2 py-1 rounded",
-                              entry.type === "success" && "bg-green-500/10 text-green-700",
-                              entry.type === "error" && "bg-red-500/10 text-red-700",
-                              entry.type === "info" && "bg-blue-500/10 text-blue-700"
-                            )}
-                          >
-                            <span className="text-muted-foreground shrink-0">
-                              {entry.timestamp.toLocaleTimeString()}
-                            </span>
-                            <span>{entry.message}</span>
-                          </div>
-                        ))}
+              {/* Tab Content */}
+              <div className="p-6 space-y-6">
+                {leftPanelTab === "schema" ? (
+                  <>
+                    {/* Session Tables Section */}
+                    <section>
+                      <div className="flex items-center justify-between mb-4">
+                        <p className="text-sm text-muted-foreground">
+                          {sessionId
+                            ? "Tables in this session"
+                            : "Start a session to create tables"}
+                        </p>
                       </div>
-                    </CardContent>
-                  </Card>
-                </section>
-              )}
+
+                      {!sessionId ? (
+                        <Card className="border-dashed">
+                          <CardContent className="p-6 text-center">
+                            <Database className="h-10 w-10 mx-auto mb-3 text-muted-foreground/50" />
+                            <p className="text-sm text-muted-foreground mb-4">
+                              No active session. Start a session to create
+                              tables and run queries.
+                            </p>
+                            <Button
+                              onClick={handleCreateSession}
+                              disabled={isSessionLoading}
+                            >
+                              {isSessionLoading ? (
+                                <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                              ) : (
+                                <Play className="h-4 w-4 mr-1.5" />
+                              )}
+                              Start Session
+                            </Button>
+                          </CardContent>
+                        </Card>
+                      ) : isSessionLoading ? (
+                        <div className="space-y-3">
+                          <Card className="overflow-hidden">
+                            <CardHeader className="pb-2 bg-muted/30">
+                              <div className="flex items-center gap-3">
+                                <Skeleton className="h-7 w-7 rounded-md" />
+                                <Skeleton className="h-4 w-24" />
+                                <Skeleton className="h-5 w-12 ml-auto rounded-full" />
+                              </div>
+                            </CardHeader>
+                            <CardContent className="p-3 space-y-1.5">
+                              <Skeleton className="h-6 w-full rounded" />
+                              <Skeleton className="h-6 w-full rounded" />
+                              <Skeleton className="h-6 w-3/4 rounded" />
+                            </CardContent>
+                          </Card>
+                        </div>
+                      ) : sessionTables.length === 0 ? (
+                        <Card className="border-dashed">
+                          <CardContent className="p-6 text-center">
+                            <TableIcon className="h-10 w-10 mx-auto mb-3 text-muted-foreground/50" />
+                            <p className="text-sm text-muted-foreground mb-3">
+                              No tables yet.
+                            </p>
+                            <div className="flex flex-col gap-2 items-center">
+                              <p className="text-xs text-muted-foreground font-mono mb-2">
+                                Run a CREATE TABLE statement, or use the Schema
+                                Builder.
+                              </p>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setLeftPanelTab("builder")}
+                              >
+                                <Hammer className="h-4 w-4 mr-1.5" />
+                                Open Schema Builder
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ) : (
+                        <div className="space-y-3">
+                          {sessionTables.map((table) => (
+                            <Card key={table.name} className="overflow-hidden">
+                              <CardHeader className="pb-2 bg-green-500/5 border-b border-green-500/20">
+                                <div className="flex items-center gap-3">
+                                  <div className="p-1.5 rounded-md bg-green-500/10">
+                                    <Check className="h-3.5 w-3.5 text-green-600" />
+                                  </div>
+                                  <span className="font-medium font-mono text-sm">
+                                    {table.name}
+                                  </span>
+                                  <Badge
+                                    variant="outline"
+                                    className="text-xs ml-auto"
+                                  >
+                                    {table.columns.length} col
+                                    {table.columns.length !== 1 ? "s" : ""}
+                                  </Badge>
+                                </div>
+                              </CardHeader>
+                              <CardContent className="p-3">
+                                <div className="space-y-1">
+                                  {table.columns.map((col) => (
+                                    <div
+                                      key={col.name}
+                                      className="flex items-center gap-2 text-xs font-mono px-2 py-1 rounded bg-muted/50"
+                                    >
+                                      <span
+                                        className={cn(
+                                          "font-medium",
+                                          col.is_primary && "text-amber-600",
+                                          col.is_foreign &&
+                                            !col.is_primary &&
+                                            "text-blue-600",
+                                        )}
+                                      >
+                                        {col.name}
+                                      </span>
+                                      <span className="text-muted-foreground">
+                                        {col.type}
+                                      </span>
+                                      <div className="flex gap-1 ml-auto">
+                                        {col.is_primary && (
+                                          <Badge
+                                            variant="outline"
+                                            className="text-[10px] px-1 py-0 h-4 bg-amber-500/10 border-amber-500/30"
+                                          >
+                                            PK
+                                          </Badge>
+                                        )}
+                                        {col.is_foreign && (
+                                          <Badge
+                                            variant="outline"
+                                            className="text-[10px] px-1 py-0 h-4 bg-blue-500/10 border-blue-500/30"
+                                            title={
+                                              col.ref_table && col.ref_column
+                                                ? `References ${col.ref_table}.${col.ref_column}`
+                                                : "Foreign Key"
+                                            }
+                                          >
+                                            FK
+                                            {col.ref_table
+                                              ? ` → ${col.ref_table}`
+                                              : ""}
+                                          </Badge>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      )}
+                    </section>
+
+                    {/* Execution Log Section */}
+                    {executionLog.length > 0 && (
+                      <section>
+                        <div className="flex items-center justify-between mb-4">
+                          <h2 className="text-lg font-semibold flex items-center gap-2">
+                            <Code className="h-5 w-5" />
+                            Execution Log
+                          </h2>
+                          <Button variant="ghost" size="sm" onClick={clearLog}>
+                            <X className="h-4 w-4 mr-1" />
+                            Clear
+                          </Button>
+                        </div>
+                        <Card>
+                          <CardContent className="p-3 max-h-48 overflow-auto">
+                            <div className="space-y-1.5 font-mono text-xs">
+                              {executionLog.map((entry) => (
+                                <div
+                                  key={entry.id}
+                                  className={cn(
+                                    "flex items-start gap-2 px-2 py-1 rounded",
+                                    entry.type === "success" &&
+                                      "bg-green-500/10 text-green-700",
+                                    entry.type === "error" &&
+                                      "bg-red-500/10 text-red-700",
+                                    entry.type === "info" &&
+                                      "bg-blue-500/10 text-blue-700",
+                                  )}
+                                >
+                                  <span className="text-muted-foreground shrink-0">
+                                    {entry.timestamp.toLocaleTimeString()}
+                                  </span>
+                                  <span>{entry.message}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </section>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {/* Schema Builder */}
+                    <section>
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <p className="text-sm text-muted-foreground">
+                            Design tables visually and push them to your
+                            session.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Builder Action Bar */}
+                      <div className="flex items-center gap-2 mb-4">
+                        <Button variant="outline" size="sm" onClick={addTable}>
+                          <Plus className="h-3.5 w-3.5 mr-1.5" />
+                          Add Table
+                        </Button>
+                        {tables.length > 0 && (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={handleGenerateData}
+                              disabled={isGenerating || tables.length === 0}
+                            >
+                              {isGenerating ? (
+                                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                              ) : (
+                                <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+                              )}
+                              Auto-fill Data
+                            </Button>
+                            <div className="flex items-center gap-1.5 ml-auto">
+                              <Label
+                                htmlFor="rows-count"
+                                className="text-xs text-muted-foreground"
+                              >
+                                Rows:
+                              </Label>
+                              <Input
+                                id="rows-count"
+                                type="number"
+                                value={rowsPerTable}
+                                onChange={(e) =>
+                                  setRowsPerTable(
+                                    Math.max(
+                                      1,
+                                      Math.min(
+                                        20,
+                                        Number.parseInt(e.target.value, 10) ||
+                                          1,
+                                      ),
+                                    ),
+                                  )
+                                }
+                                className="w-14 h-7 text-xs"
+                                min={1}
+                                max={20}
+                              />
+                            </div>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Table Cards */}
+                      {tables.length === 0 ? (
+                        <Card className="border-dashed">
+                          <CardContent className="p-6 text-center">
+                            <TableIcon className="h-10 w-10 mx-auto mb-3 text-muted-foreground/50" />
+                            <p className="text-sm text-muted-foreground mb-3">
+                              No tables defined yet.
+                            </p>
+                            <Button variant="outline" onClick={addTable}>
+                              <Plus className="h-4 w-4 mr-1.5" />
+                              Add Your First Table
+                            </Button>
+                          </CardContent>
+                        </Card>
+                      ) : (
+                        <div className="space-y-4">
+                          {tables.map((table) => {
+                            const isPushed = pushedTableIds.has(table.id);
+                            const hasRows =
+                              (rowsByTable[table.id] ?? []).length > 0;
+
+                            return (
+                              <div key={table.id} className="space-y-2">
+                                <TableCard
+                                  table={table}
+                                  onUpdate={(updater) =>
+                                    updateTable(table.id, updater)
+                                  }
+                                  onRemove={() => removeTable(table.id)}
+                                  onAddColumn={() => addColumn(table.id)}
+                                  onUpdateColumn={(colId, updater) =>
+                                    updateColumn(table.id, colId, updater)
+                                  }
+                                  onRemoveColumn={(colId) =>
+                                    removeColumn(table.id, colId)
+                                  }
+                                  isCreated={isPushed}
+                                />
+
+                                {/* Data Preview */}
+                                {hasRows && !isPushed && (
+                                  <div className="ml-2">
+                                    <DataPreviewTable
+                                      table={table}
+                                      rows={rowsByTable[table.id] ?? []}
+                                      onUpdateRow={(rowIndex, colName, value) =>
+                                        updateRowValue(
+                                          table.id,
+                                          rowIndex,
+                                          colName,
+                                          value,
+                                        )
+                                      }
+                                      onRemoveRow={(rowIndex) =>
+                                        removeRow(table.id, rowIndex)
+                                      }
+                                      onAddRow={() => addRow(table.id)}
+                                    />
+                                  </div>
+                                )}
+
+                                {/* Push single table button */}
+                                {!isPushed &&
+                                  sessionId &&
+                                  table.columns.length > 0 && (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="w-full border-dashed text-muted-foreground hover:text-foreground"
+                                      onClick={() =>
+                                        handlePushSingleTable(table.id)
+                                      }
+                                      disabled={isPushing}
+                                    >
+                                      {isPushing ? (
+                                        <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                                      ) : (
+                                        <Upload className="h-3.5 w-3.5 mr-1.5" />
+                                      )}
+                                      {hasRows
+                                        ? `Create "${table.name}" with ${(rowsByTable[table.id] ?? []).length} rows`
+                                        : `Create "${table.name}" in Session`}
+                                    </Button>
+                                  )}
+
+                                {isPushed && (
+                                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-500/10 text-green-700 text-xs">
+                                    <Check className="h-3.5 w-3.5" />
+                                    <span>Pushed to session</span>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Push All to Session */}
+                      {tables.length > 0 &&
+                        sessionId &&
+                        tables.some(
+                          (t) =>
+                            !pushedTableIds.has(t.id) && t.columns.length > 0,
+                        ) && (
+                          <div className="mt-6 pt-4 border-t">
+                            <Button
+                              className="w-full"
+                              onClick={() => handlePushToSession()}
+                              disabled={isPushing || !sessionId}
+                            >
+                              {isPushing ? (
+                                <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                              ) : (
+                                <Upload className="h-4 w-4 mr-1.5" />
+                              )}
+                              Push All Tables to Session
+                            </Button>
+                            <p className="text-[11px] text-muted-foreground mt-2 text-center">
+                              Creates tables
+                              {tables.some(
+                                (t) => (rowsByTable[t.id] ?? []).length > 0,
+                              )
+                                ? " and inserts data"
+                                : ""}{" "}
+                              in your active session
+                            </p>
+                          </div>
+                        )}
+
+                      {/* No session warning */}
+                      {tables.length > 0 && !sessionId && (
+                        <div className="mt-4 p-3 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-700 text-xs">
+                          Start a session first to push tables.
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="mt-2 w-full"
+                            onClick={handleCreateSession}
+                            disabled={isSessionLoading}
+                          >
+                            {isSessionLoading ? (
+                              <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                            ) : (
+                              <Play className="h-4 w-4 mr-1.5" />
+                            )}
+                            Start Session
+                          </Button>
+                        </div>
+                      )}
+                    </section>
+                  </>
+                )}
+              </div>
             </div>
           </ResizablePanel>
 
@@ -1158,7 +1692,11 @@ export default function PlaygroundPage() {
                   </h2>
                   <div className="flex items-center gap-2">
                     <Button variant="outline" size="sm" onClick={handleCopy}>
-                      {isCopied ? <Check className="h-4 w-4 mr-1.5" /> : <Copy className="h-4 w-4 mr-1.5" />}
+                      {isCopied ? (
+                        <Check className="h-4 w-4 mr-1.5" />
+                      ) : (
+                        <Copy className="h-4 w-4 mr-1.5" />
+                      )}
                       {isCopied ? "Copied" : "Copy All"}
                     </Button>
                     <Button
@@ -1186,12 +1724,14 @@ export default function PlaygroundPage() {
                     Start a session to run queries.
                   </p>
                 ) : !isQueryValid && validationErrors.length > 0 ? (
-                  <p className="text-xs text-red-600">
-                    {validationErrors[0]}
-                  </p>
+                  <p className="text-xs text-red-600">{validationErrors[0]}</p>
                 ) : (
                   <p className="text-xs text-muted-foreground">
-                    Session active. Press <kbd className="px-1.5 py-0.5 rounded bg-muted border text-[10px]">Cmd+Enter</kbd> to run.
+                    Session active. Press{" "}
+                    <kbd className="px-1.5 py-0.5 rounded bg-muted border text-[10px]">
+                      Cmd+Enter
+                    </kbd>{" "}
+                    to run.
                   </p>
                 )}
               </div>

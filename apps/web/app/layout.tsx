@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { JetBrains_Mono } from "next/font/google";
+import { ServerStatus } from "@/components/ServerStatus";
 import { ThemeProvider } from "@/lib/theme-context";
 import "./globals.css";
 
@@ -30,7 +31,10 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${jetbrainsMono.variable} antialiased`}>
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <ServerStatus />
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );
