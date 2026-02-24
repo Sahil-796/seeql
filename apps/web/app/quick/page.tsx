@@ -1,65 +1,73 @@
 "use client";
 
+import {
+  BookOpen,
+  ChevronDown,
+  ChevronRight,
+  Loader2,
+  Play,
+  X,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { DataTable } from "@/components";
+import { ThemeSwitcher } from "@/components/ThemeSwitcher";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { useSeeql } from "@/lib/hooks";
+import { cn } from "@/lib/utils";
 import type { Schema } from "@/lib/types";
 
 const EXAMPLE_QUERY = `SELECT u.id, u.name, o.total
 FROM users u
 JOIN orders o ON u.id = o.user_id`;
 
-function TerminalPrompt({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex items-start gap-2">
-      <span className="text-[#39ff14] select-none text-base">{">"}</span>
-      <span className="text-base">{children}</span>
-    </div>
-  );
-}
-
 function SchemaBlock({ schema }: { schema: Schema }) {
   return (
-    <div className="font-mono text-sm">
+    <div className="font-mono text-sm space-y-4">
       {schema.tables.map((table) => (
-        <div key={table.name} className="mb-4">
-          <div className="text-[#ff6b6b]">
+        <div key={table.name}>
+          <div className="text-destructive font-medium">
             CREATE TABLE {table.name} {"{"}
           </div>
           {table.columns.map((col) => (
-            <div key={col.name} className="pl-4 text-[#ccc]">
-              <span className="text-[#ffd93d]">{col.name}</span>
-              <span className="text-[#666]"> : </span>
-              <span className="text-[#6bcb77]">{col.type || "TEXT"}</span>
-              {col.is_primary && <span className="text-[#ff6b6b]"> [PK]</span>}
+            <div key={col.name} className="pl-4 py-0.5">
+              <span className="text-amber-500 dark:text-amber-400">{col.name}</span>
+              <span className="text-muted-foreground"> : </span>
+              <span className="text-green-600 dark:text-green-400">{col.type || "TEXT"}</span>
+              {col.is_primary && (
+                <Badge variant="outline" className="ml-2 text-[10px] px-1 py-0 h-4 bg-amber-500/10 border-amber-500/30 text-amber-600">
+                  PK
+                </Badge>
+              )}
               {col.is_foreign && (
-                <span className="text-[#4d96ff]">
-                  {" "}
-                  [FK → {col.ref_table}.{col.ref_column}]
-                </span>
+                <Badge variant="outline" className="ml-2 text-[10px] px-1 py-0 h-4 bg-blue-500/10 border-blue-500/30 text-blue-600">
+                  FK → {col.ref_table}.{col.ref_column}
+                </Badge>
               )}
             </div>
           ))}
-          <div className="text-[#ff6b6b]">{"}"}</div>
+          <div className="text-destructive">{"}"}</div>
         </div>
       ))}
       {schema.relationships && schema.relationships.length > 0 && (
-        <div className="mt-4 pt-4 border-t border-[#333]">
-          <div className="text-[#666] mb-2">{"// RELATIONSHIPS"}</div>
+        <div className="pt-3 border-t">
+          <div className="text-muted-foreground text-xs mb-2 uppercase tracking-wider">Relationships</div>
           {schema.relationships.map((rel) => (
             <div
               key={`${rel.LeftTable}.${rel.LeftColumn}-${rel.RightTable}.${rel.RightColumn}`}
-              className="text-[#4d96ff]"
+              className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 py-0.5"
             >
-              {rel.LeftTable}.{rel.LeftColumn} {"===>"} {rel.RightTable}.
-              {rel.RightColumn}
+              <span>{rel.LeftTable}.{rel.LeftColumn}</span>
+              <ChevronRight className="h-3 w-3" />
+              <span>{rel.RightTable}.{rel.RightColumn}</span>
             </div>
           ))}
         </div>
@@ -68,7 +76,7 @@ function SchemaBlock({ schema }: { schema: Schema }) {
   );
 }
 
-export default function TerminalView() {
+export default function QuickModePage() {
   const {
     sql,
     schema,
@@ -83,7 +91,7 @@ export default function TerminalView() {
   } = useSeeql();
   const [rowCount, setRowCount] = useState(10);
   const [history, setHistory] = useState<string[]>([]);
-  const [isQuickRefOpen, setIsQuickRefOpen] = useState(false);
+  const [isRefOpen, setIsRefOpen] = useState(false);
   const [isSplitView, setIsSplitView] = useState(true);
   const pathname = usePathname();
 
@@ -94,313 +102,344 @@ export default function TerminalView() {
     }
   };
 
+  const hasResults = schema || (rows && rows.length > 0) || (data && Object.keys(data).length > 0);
+
   return (
-    <div className="min-h-screen bg-[#0d0d0d] text-[#ccc] font-mono">
-      {/* Terminal Header */}
-      <header className="bg-[#1a1a1a] border-b-2 border-[#39ff14] px-6 py-4 sticky top-0 z-50">
-        <div className="flex items-center justify-between">
-          <div className="flex items-baseline gap-3">
-            <span className="text-[#e5e5e5] text-lg font-semibold tracking-[0.2em]">
-              SEEQL
-            </span>
-            <span className="text-[#39ff14] text-xs uppercase tracking-[0.3em]">
+    <div className="min-h-screen bg-background">
+      {/* Header — matches playground exactly */}
+      <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-sm">
+        <div className="flex h-14 items-center justify-between px-6">
+          <div className="flex items-center gap-4">
+            <Link href="/" className="flex items-center gap-2">
+              <span className="text-lg font-semibold tracking-tight">SeeQL</span>
+            </Link>
+            <Badge variant="secondary" className="font-normal">
               Quick Mode
-            </span>
+            </Badge>
           </div>
-          <nav className="flex items-center gap-4 text-xs uppercase tracking-[0.2em]">
-            <Link
-              href="/"
-              className={
-                pathname === "/"
-                  ? "text-[#39ff14]"
-                  : "text-[#666] hover:text-[#e5e5e5]"
-              }
-            >
-              Playground
-            </Link>
-            <Link
-              href="/quick"
-              className={
-                pathname === "/quick"
-                  ? "text-[#39ff14]"
-                  : "text-[#666] hover:text-[#e5e5e5]"
-              }
-            >
-              Quick Mode
-            </Link>
-          </nav>
+          <div className="flex items-center gap-4">
+            <ThemeSwitcher />
+            <nav className="flex items-center gap-1">
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/">Playground</Link>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className={cn(pathname === "/quick" && "text-foreground")}
+                asChild
+              >
+                <Link href="/quick">Quick Mode</Link>
+              </Button>
+            </nav>
+          </div>
         </div>
       </header>
 
-      <div className="flex h-[calc(100vh-56px)]">
-        {/* Main Terminal Area */}
-        <main className="flex-1 flex flex-col overflow-hidden">
-          <ResizablePanelGroup direction="vertical" className="flex-1">
-            <ResizablePanel defaultSize={70} minSize={35}>
-              {/* Output Area */}
-              <div className="h-full overflow-y-auto p-6 space-y-4">
-                {/* Welcome Message */}
-                {!sql.trim() && (
-                  <div className="text-[#666] text-sm border border-[#333] p-4 bg-[#111]">
-                    <pre className="text-base">{`
-  ____  _____ _____ ___  _     
- / ___|| ____| ____/ _ \\| |    
- \\___ \\|  _| |  _|| | | | |    
-  ___) | |___| |__| |_| | |___ 
- |____/|_____|_____\\__\\_\\_____|
-                                
- SQL Playground & Schema Visualizer
- Type your query below and press ENTER or click [EXECUTE]
-              `}</pre>
+      {/* Main layout */}
+      <main className="h-[calc(100vh-3.5rem)]">
+        <ResizablePanelGroup direction="vertical" className="h-full">
+          {/* Output panel */}
+          <ResizablePanel defaultSize={68} minSize={30}>
+            <div className="h-full overflow-y-auto p-6 space-y-4">
+
+              {/* Empty state */}
+              {!sql.trim() && !isLoading && (
+                <div className="flex flex-col items-center justify-center h-full min-h-[200px] text-center">
+                  <div className="mb-4 p-4 rounded-full bg-muted/50">
+                    <Play className="h-8 w-8 text-muted-foreground/50" />
                   </div>
-                )}
+                  <p className="text-sm font-medium text-foreground mb-1">
+                    Write a SQL query to get started
+                  </p>
+                  <p className="text-xs text-muted-foreground max-w-xs">
+                    SeeQL will infer your schema and generate realistic mock data automatically.
+                  </p>
+                </div>
+              )}
 
-                {/* History */}
-                {history.map((cmd) => (
-                  <TerminalPrompt key={cmd}>
-                    <span className="text-[#666]">{cmd}</span>
-                  </TerminalPrompt>
-                ))}
+              {/* Query history */}
+              {history.length > 0 && (
+                <div className="space-y-1">
+                  {history.map((cmd) => (
+                    <button
+                      key={cmd}
+                      type="button"
+                      className="w-full flex items-start gap-2 px-3 py-1.5 rounded-md bg-muted/30 text-xs font-mono text-muted-foreground hover:bg-muted/50 transition-colors text-left"
+                      onClick={() => setSql(cmd)}
+                    >
+                      <span className="text-primary/50 select-none shrink-0 mt-0.5">›</span>
+                      <span className="truncate">{cmd}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
 
-                {/* Error Output */}
-                {error && (
-                  <div className="text-[#ff6b6b] bg-[#ff6b6b]/10 border border-[#ff6b6b]/30 p-4 text-sm">
-                    <span className="font-bold">ERROR:</span> {error}
+              {/* Error */}
+              {error && (
+                <div className="p-4 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive text-sm flex items-start gap-2">
+                  <X className="h-4 w-4 shrink-0 mt-0.5" />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              {/* Layout toggle when there are results */}
+              {hasResults && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Layout</span>
+                  <div className="flex items-center gap-1 border rounded-md p-0.5 bg-muted/30">
+                    <button
+                      type="button"
+                      onClick={() => setIsSplitView(false)}
+                      className={cn(
+                        "px-2.5 py-1 text-xs rounded transition-colors",
+                        !isSplitView
+                          ? "bg-background text-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      Stacked
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsSplitView(true)}
+                      className={cn(
+                        "px-2.5 py-1 text-xs rounded transition-colors",
+                        isSplitView
+                          ? "bg-background text-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      Side by side
+                    </button>
                   </div>
-                )}
+                </div>
+              )}
 
-                {(schema || (rows && rows.length > 0)) && (
-                  <div className="flex items-center justify-between gap-4 border border-[#333] bg-[#111] px-5 py-3">
-                    <div className="text-[#39ff14] text-sm">
-                      ▓▓▓ RESULTS LAYOUT ▓▓▓
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setIsSplitView(false)}
-                        className={`px-3 py-1 text-xs border border-[#333] transition-colors ${
-                          !isSplitView
-                            ? "bg-[#39ff14] text-[#0d0d0d]"
-                            : "text-[#999] hover:text-[#e5e5e5]"
-                        }`}
-                      >
-                        STACKED
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setIsSplitView(true)}
-                        className={`px-3 py-1 text-xs border border-[#333] transition-colors ${
-                          isSplitView
-                            ? "bg-[#39ff14] text-[#0d0d0d]"
-                            : "text-[#999] hover:text-[#e5e5e5]"
-                        }`}
-                      >
-                        SIDE BY SIDE
-                      </button>
-                    </div>
-                  </div>
-                )}
+              {/* Results grid */}
+              <div className={cn("grid gap-4", isSplitView ? "lg:grid-cols-2" : "grid-cols-1")}>
 
-                <div
-                  className={`grid gap-4 ${isSplitView ? "lg:grid-cols-2" : "grid-cols-1"}`}
-                >
-                  {/* Schema Output */}
-                  {schema && (
-                    <div className="border border-[#333] bg-[#111] p-5">
-                      <div className="text-[#39ff14] text-sm mb-3 pb-2 border-b border-[#333]">
-                        ▓▓▓ INFERRED SCHEMA ▓▓▓
-                      </div>
-                      <SchemaBlock schema={schema} />
-                    </div>
-                  )}
-
-                  {/* Data Output */}
-                  {data && Object.keys(data).length > 0 && (
-                    <div className="border border-[#333] bg-[#111] p-5">
-                      <div className="text-[#39ff14] text-sm mb-3 pb-2 border-b border-[#333]">
-                        ▓▓▓ GENERATED DATA ▓▓▓
-                      </div>
-                      <div className="space-y-6">
-                        {Object.entries(data).map(([tableName, tableRows]) => (
-                          <DataTable
-                            key={tableName}
-                            data={tableRows}
-                            tableName={tableName}
-                            maxRows={15}
-                            className="rounded-lg border border-[#2a2a2a] bg-[#0f0f10]"
-                            tableClassName="border-separate border-spacing-0"
-                            captionClassName="text-[#666]"
-                            cellClassName="border border-[#2a2a2a] text-[#cfcfcf]"
-                            getRowKey={(row, index) =>
-                              String(
-                                row.id ??
-                                  row.ID ??
-                                  row.Id ??
-                                  `${tableName}-${index}`,
-                              )
-                            }
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Query Results */}
-                  {rows && rows.length > 0 && (
-                    <div className="border border-[#333] bg-[#111] p-5">
-                      <div className="text-[#39ff14] text-sm mb-3 pb-2 border-b border-[#333]">
-                        ▓▓▓ QUERY RESULTS{" "}
-                        {resultRowCount ? `(${resultRowCount} rows)` : ""} ▓▓▓
-                      </div>
-                      {columns && (
-                        <div className="text-[#666] text-xs mb-2">
-                          Columns: {columns.join(", ")}
+                {/* Inferred Schema */}
+                {schema && (
+                  <Card>
+                    <CardHeader className="pb-3 bg-muted/30">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 rounded-md bg-primary/10">
+                          <ChevronRight className="h-4 w-4 text-primary" />
                         </div>
+                        <span className="font-medium text-sm">Inferred Schema</span>
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 ml-auto">
+                          {schema.tables.length} table{schema.tables.length !== 1 ? "s" : ""}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-4">
+                      <SchemaBlock schema={schema} />
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Generated Data */}
+                {data && Object.keys(data).length > 0 && (
+                  <Card>
+                    <CardHeader className="pb-3 bg-muted/30">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 rounded-md bg-green-500/10">
+                          <ChevronRight className="h-4 w-4 text-green-600" />
+                        </div>
+                        <span className="font-medium text-sm">Generated Data</span>
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 ml-auto">
+                          {Object.keys(data).length} table{Object.keys(data).length !== 1 ? "s" : ""}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-4 space-y-6">
+                      {Object.entries(data).map(([tableName, tableRows]) => (
+                        <DataTable
+                          key={tableName}
+                          data={tableRows}
+                          tableName={tableName}
+                          maxRows={15}
+                          className="rounded-lg border bg-muted/20"
+                          tableClassName="border-separate border-spacing-0"
+                          captionClassName="text-muted-foreground"
+                          cellClassName="border-b"
+                          getRowKey={(row, index) =>
+                            String(
+                              row.id ?? row.ID ?? row.Id ?? `${tableName}-${index}`,
+                            )
+                          }
+                        />
+                      ))}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Query Results */}
+                {rows && rows.length > 0 && (
+                  <Card>
+                    <CardHeader className="pb-3 bg-muted/30">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 rounded-md bg-blue-500/10">
+                          <ChevronRight className="h-4 w-4 text-blue-600" />
+                        </div>
+                        <span className="font-medium text-sm">Query Results</span>
+                        {resultRowCount != null && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 ml-auto">
+                            {resultRowCount} rows
+                          </Badge>
+                        )}
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-4">
+                      {columns && (
+                        <p className="text-xs text-muted-foreground mb-3">
+                          {columns.join(", ")}
+                        </p>
                       )}
                       <DataTable
                         data={rows}
                         tableName=""
                         maxRows={15}
-                        className="rounded-lg border border-[#2a2a2a] bg-[#0f0f10]"
+                        className="rounded-lg border bg-muted/20"
                         tableClassName="border-separate border-spacing-0"
-                        captionClassName="text-[#666]"
-                        cellClassName="border border-[#2a2a2a] text-[#cfcfcf]"
+                        captionClassName="text-muted-foreground"
+                        cellClassName="border-b"
                         getRowKey={(row, index) =>
-                          String(
-                            row.id ?? row.ID ?? row.Id ?? `result-${index}`,
-                          )
+                          String(row.id ?? row.ID ?? row.Id ?? `result-${index}`)
                         }
                       />
-                    </div>
-                  )}
-                </div>
-
-                {/* Loading State */}
-                {isLoading && (
-                  <div className="text-[#39ff14] animate-pulse text-base">
-                    Processing query...
-                    <span className="animate-ping inline-block ml-1">_</span>
-                  </div>
+                    </CardContent>
+                  </Card>
                 )}
               </div>
-            </ResizablePanel>
-            <ResizableHandle withHandle />
-            <ResizablePanel defaultSize={30} minSize={15}>
-              {/* Input Area */}
-              <div className="h-full border-t-2 border-[#333] bg-[#0a0a0a] p-5 flex flex-col">
-                <div className="flex items-center gap-2 mb-3 text-sm text-[#666]">
-                  <span>ROWS_PER_TABLE:</span>
+
+              {/* Loading */}
+              {isLoading && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Processing query...
+                </div>
+              )}
+            </div>
+          </ResizablePanel>
+
+          <ResizableHandle withHandle />
+
+          {/* Input panel */}
+          <ResizablePanel defaultSize={32} minSize={18}>
+            <div className="h-full border-t bg-background flex flex-col">
+              {/* Toolbar */}
+              <div className="flex items-center justify-between px-5 py-2.5 border-b bg-muted/20">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-muted-foreground">Rows per table</span>
                   <input
                     type="number"
                     value={rowCount}
                     onChange={(e) =>
                       setRowCount(Math.max(1, parseInt(e.target.value, 10) || 1))
                     }
-                    className="w-14 bg-transparent border border-[#333] px-2 py-1 text-[#39ff14] text-sm focus:outline-none focus:border-[#39ff14]"
+                    className="w-14 h-7 bg-background border border-border rounded-md px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                     min={1}
                     max={100}
                   />
                 </div>
-                <div className="flex flex-1 min-h-0 items-start gap-3">
-                  <span className="text-[#39ff14] pt-2 text-lg">{">"}</span>
-                  <textarea
-                    value={sql}
-                    onChange={(e) => setSql(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Tab") {
-                        e.preventDefault();
-                        const target = e.currentTarget;
-                        const start = target.selectionStart ?? 0;
-                        const end = target.selectionEnd ?? 0;
-                        const nextValue = `${sql.slice(0, start)}\t${sql.slice(end)}`;
-                        setSql(nextValue);
-                        requestAnimationFrame(() => {
-                          target.selectionStart = target.selectionEnd =
-                            start + 1;
-                        });
-                        return;
-                      }
-                      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-                        e.preventDefault();
-                        handleRun();
-                      }
-                    }}
-                    placeholder={EXAMPLE_QUERY}
-                    className="flex-1 h-full bg-transparent resize-none text-[#fff] text-base placeholder:text-[#444] focus:outline-none"
-                  />
+                <div className="flex items-center gap-2">
                   <button
+                    type="button"
+                    onClick={() => setIsRefOpen((v) => !v)}
+                    className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <BookOpen className="h-3.5 w-3.5" />
+                    Reference
+                    <ChevronDown
+                      className={cn(
+                        "h-3 w-3 transition-transform",
+                        isRefOpen && "rotate-180",
+                      )}
+                    />
+                  </button>
+                  <Button
+                    size="sm"
                     onClick={handleRun}
                     disabled={isLoading || !sql.trim()}
-                    type="button"
-                    className="px-5 py-2.5 bg-[#39ff14] text-[#0d0d0d] text-sm font-bold hover:bg-[#2ee00d] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   >
-                    [EXECUTE]
-                  </button>
+                    {isLoading ? (
+                      <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                    ) : (
+                      <Play className="h-4 w-4 mr-1.5" />
+                    )}
+                    Run
+                  </Button>
                 </div>
-                <div className="text-sm text-[#444] mt-3">
-                  Press Ctrl/Cmd+Enter to execute | Tab to indent
+              </div>
+
+              {/* Quick reference panel */}
+              {isRefOpen && (
+                <div className="border-b bg-muted/10 px-5 py-3 grid grid-cols-3 gap-4 text-xs text-muted-foreground">
+                  <div>
+                    <div className="font-medium text-foreground mb-1.5">Supported</div>
+                    <div>SELECT with JOINs</div>
+                    <div>Multiple tables</div>
+                    <div>Column aliases</div>
+                  </div>
+                  <div>
+                    <div className="font-medium text-foreground mb-1.5">Auto-detected</div>
+                    <div>Primary keys (id)</div>
+                    <div>Foreign keys (*_id)</div>
+                    <div>Relationships</div>
+                  </div>
+                  <div>
+                    <div className="font-medium text-foreground mb-1.5">Example</div>
+                    <pre className="text-blue-600 dark:text-blue-400 whitespace-pre-wrap leading-relaxed">{`SELECT u.name, p.title
+FROM users u
+JOIN posts p
+ON u.id = p.user_id`}</pre>
+                  </div>
                 </div>
+              )}
+
+              {/* Textarea */}
+              <div className="flex flex-1 min-h-0 items-start gap-2 p-4">
+                <span className="text-primary/60 pt-1 text-sm select-none font-mono">›</span>
+                <textarea
+                  value={sql}
+                  onChange={(e) => setSql(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Tab") {
+                      e.preventDefault();
+                      const target = e.currentTarget;
+                      const start = target.selectionStart ?? 0;
+                      const end = target.selectionEnd ?? 0;
+                      const nextValue = `${sql.slice(0, start)}\t${sql.slice(end)}`;
+                      setSql(nextValue);
+                      requestAnimationFrame(() => {
+                        target.selectionStart = target.selectionEnd = start + 1;
+                      });
+                      return;
+                    }
+                    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                      e.preventDefault();
+                      handleRun();
+                    }
+                  }}
+                  placeholder={EXAMPLE_QUERY}
+                  className="flex-1 h-full bg-transparent resize-none text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none font-mono leading-relaxed"
+                />
               </div>
-            </ResizablePanel>
-          </ResizablePanelGroup>
-        </main>
 
-        {/* Side Panel - Quick Reference */}
-        <button
-          type="button"
-          onClick={() => setIsQuickRefOpen((open) => !open)}
-          className="fixed right-0 top-1/2 z-40 -translate-y-1/2 rounded-l border border-[#333] bg-[#0a0a0a] px-3 py-2 text-xs text-[#39ff14] shadow-lg"
-        >
-          {isQuickRefOpen ? "HIDE" : "HELP"}
-        </button>
-        <aside
-          className={`fixed right-0 top-[56px] z-30 h-[calc(100vh-56px)] w-72 border-l-2 border-[#333] bg-[#0a0a0a] p-5 text-sm overflow-y-auto transition-transform ${
-            isQuickRefOpen ? "translate-x-0" : "translate-x-full"
-          }`}
-        >
-          <div className="text-[#39ff14] font-bold mb-4 text-base">
-            {"// QUICK REFERENCE"}
-          </div>
-
-          <div className="space-y-5 text-[#666]">
-            <div>
-              <div className="text-[#ffd93d] mb-2">Supported Queries:</div>
-              <div>- SELECT with JOINs</div>
-              <div>- Multiple tables</div>
-              <div>- Column aliases</div>
-            </div>
-
-            <div>
-              <div className="text-[#ffd93d] mb-2">Auto-Detection:</div>
-              <div>- Primary keys (id)</div>
-              <div>- Foreign keys (*_id)</div>
-              <div>- Relationships</div>
-            </div>
-
-            <div>
-              <div className="text-[#ffd93d] mb-2">Example:</div>
-              <pre className="text-[#4d96ff] whitespace-pre-wrap text-sm">
-                {`SELECT
-  u.name,
-  p.title
- FROM users u
- JOIN posts p
- ON u.id = p.user_id`}
-              </pre>
-            </div>
-
-            <div className="pt-4 border-t border-[#333]">
-              <div className="text-[#ff6b6b]">STATUS:</div>
-              <div className={schema ? "text-[#27c93f]" : "text-[#666]"}>
-                SCHEMA: {schema ? "LOADED" : "EMPTY"}
-              </div>
-              <div className={data ? "text-[#27c93f]" : "text-[#666]"}>
-                DATA: {data ? `${Object.keys(data).length} TABLES` : "EMPTY"}
+              {/* Footer hint */}
+              <div className="px-5 pb-3 flex items-center gap-1.5 text-xs text-muted-foreground/60">
+                <kbd className="px-1.5 py-0.5 rounded bg-muted border text-[10px]">Cmd+Enter</kbd>
+                <span>to run</span>
+                <span className="mx-1">·</span>
+                <kbd className="px-1.5 py-0.5 rounded bg-muted border text-[10px]">Tab</kbd>
+                <span>to indent</span>
               </div>
             </div>
-          </div>
-        </aside>
-      </div>
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      </main>
     </div>
   );
 }
