@@ -1,23 +1,21 @@
 import type {
-  QuickRunRequest,
-  QueryResult,
-  PlaygroundExecuteRequest,
   CreateSessionResponse,
-  SessionSchemaResponse,
-  SessionInfoResponse,
-  HealthResponse,
   GenerateRequest,
   GenerateResponse,
+  HealthResponse,
+  PlaygroundExecuteRequest,
+  QueryResult,
+  QuickRunRequest,
+  SessionInfoResponse,
+  SessionSchemaResponse,
 } from "./types";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_PROD === "true" 
-  ? "https://seeql-container.greenocean-3c22b32a.centralindia.azurecontainerapps.io"
-  : (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080");
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
 class ApiError extends Error {
   constructor(
     message: string,
-    public statusCode: number
+    public statusCode: number,
   ) {
     super(message);
     this.name = "ApiError";
@@ -26,7 +24,7 @@ class ApiError extends Error {
 
 async function fetchApi<T>(
   endpoint: string,
-  options?: RequestInit
+  options?: RequestInit,
 ): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     headers: {
@@ -40,7 +38,7 @@ async function fetchApi<T>(
   if (!response.ok) {
     throw new ApiError(
       data.error || "An unexpected error occurred",
-      response.status
+      response.status,
     );
   }
 
@@ -89,7 +87,7 @@ export const api = {
    */
   executePlayground: async (
     sessionId: string,
-    sql: string
+    sql: string,
   ): Promise<QueryResult> => {
     const request: PlaygroundExecuteRequest = { sql };
     return fetchApi<QueryResult>(`/playground/session/${sessionId}/execute`, {
@@ -102,11 +100,14 @@ export const api = {
    * Playground: Get session schema (all tables)
    */
   getSessionSchema: async (
-    sessionId: string
+    sessionId: string,
   ): Promise<SessionSchemaResponse> => {
-    return fetchApi<SessionSchemaResponse>(`/playground/session/${sessionId}/schema`, {
-      method: "GET",
-    });
+    return fetchApi<SessionSchemaResponse>(
+      `/playground/session/${sessionId}/schema`,
+      {
+        method: "GET",
+      },
+    );
   },
 
   /**
@@ -121,7 +122,10 @@ export const api = {
   /**
    * Generate mock data from SQL schema
    */
-  generate: async (sql: string, rowsPerTable: number): Promise<GenerateResponse> => {
+  generate: async (
+    sql: string,
+    rowsPerTable: number,
+  ): Promise<GenerateResponse> => {
     const request: GenerateRequest = { sql, rows_per_table: rowsPerTable };
     return fetchApi<GenerateResponse>("/generate", {
       method: "POST",
