@@ -3,6 +3,8 @@ package modes
 import (
 	"context"
 	"fmt"
+	"strings"
+
 	"github.com/Sahil-796/seeql/internal/db"
 	"github.com/Sahil-796/seeql/internal/parser"
 	"github.com/Sahil-796/seeql/internal/schema"
@@ -94,6 +96,16 @@ func (p *PlaygroundMode) handleCreateTable(ctx context.Context, stmt *sqlparser.
 		validationErrors := err.(validator.ValidationErrors)
 		return nil, fmt.Errorf("invalid table schema: %s", validationErrors[0].Error())
 	}
+
+	// Reject duplicate table names
+	p.session.Mu.RLock()
+	for _, t := range p.session.Schema.Tables {
+		if strings.EqualFold(t.Name, tableSchema.Name) {
+			p.session.Mu.RUnlock()
+			return nil, fmt.Errorf("table %q already exists in this session", tableSchema.Name)
+		}
+	}
+	p.session.Mu.RUnlock()
 
 	// Create table in database
 	err = db.CreateTable(p.session.DB, tableSchema)

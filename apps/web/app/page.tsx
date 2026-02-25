@@ -511,6 +511,7 @@ function TableCard({
   onUpdateColumn,
   onRemoveColumn,
   isCreated,
+  isDuplicateName,
 }: {
   table: TableDef;
   refTargets: RefTarget[];
@@ -523,6 +524,7 @@ function TableCard({
   ) => void;
   onRemoveColumn: (columnId: string) => void;
   isCreated?: boolean;
+  isDuplicateName?: boolean;
 }) {
   return (
     <div
@@ -560,7 +562,13 @@ function TableCard({
               name: toIdentifier(e.target.value),
             }))
           }
-          className="h-7 font-mono font-semibold text-sm flex-1 border-0 bg-transparent shadow-none focus-visible:ring-1 px-1.5"
+          className={cn(
+            "h-7 font-mono font-semibold text-sm flex-1 border-0 bg-transparent shadow-none px-1.5",
+            isDuplicateName
+              ? "focus-visible:ring-1 ring-1 ring-destructive/70 text-destructive"
+              : "focus-visible:ring-1",
+          )}
+          title={isDuplicateName ? "A table with this name already exists" : undefined}
           disabled={isCreated}
           placeholder="table_name"
         />
@@ -1246,6 +1254,18 @@ export default function PlaygroundPage() {
         continue;
       }
 
+      // Reject if a table with this name already exists in the session
+      const alreadyInSession = sessionTables.some(
+        (s) => s.name.toLowerCase() === table.name.toLowerCase(),
+      );
+      if (alreadyInSession) {
+        addLog(
+          "error",
+          `Skipped "${table.name}" — a table with that name already exists in this session`,
+        );
+        continue;
+      }
+
       // 1. CREATE TABLE
       const createSql = buildCreateTableSql(table);
       try {
@@ -1730,11 +1750,18 @@ export default function PlaygroundPage() {
                                 }));
                               const refTargets: RefTarget[] = [...sessionTargets, ...builderTargets];
 
+                              // Duplicate name detection
+                              const nameLower = table.name.toLowerCase();
+                              const isDuplicateName =
+                                tables.some((t) => t.id !== table.id && t.name.toLowerCase() === nameLower) ||
+                                sessionTables.some((t) => t.name.toLowerCase() === nameLower);
+
                               return (
                                 <div key={table.id} className="space-y-1.5">
                                   <TableCard
                                     table={table}
                                     refTargets={refTargets}
+                                    isDuplicateName={isDuplicateName}
                                     onUpdate={(updater) =>
                                       updateTable(table.id, updater)
                                     }
