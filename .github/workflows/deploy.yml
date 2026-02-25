@@ -9,14 +9,16 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+
     permissions:
       id-token: write
       contents: read
 
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
+      # Azure login (required for az CLI)
       - name: Azure Login
         uses: azure/login@v2
         with:
@@ -24,32 +26,28 @@ jobs:
           tenant-id: ${{ secrets.SEEQLCONTAINER_AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.SEEQLCONTAINER_AZURE_SUBSCRIPTION_ID }}
 
-      - name: Get ACR credentials
-        run: |
-          ACR_USERNAME=$(az acr credential show --name seeqlregistry --query username -o tsv)
-          ACR_PASSWORD=$(az acr credential show --name seeqlregistry --query "passwords[0].value" -o tsv)
-          echo "ACR_USERNAME=$ACR_USERNAME" >> $GITHUB_ENV
-          echo "ACR_PASSWORD=$ACR_PASSWORD" >> $GITHUB_ENV
+      # Enable buildx (multi-arch builder)
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Build and push image to ACR
+      # Login to Docker Hub
+      - name: Login to Docker Hub
         run: |
-          docker login seeqlregistry.azurecr.io -u $ACR_USERNAME -p $ACR_PASSWORD
-          docker build -t seeqlregistry.azurecr.io/seeql:${{ github.sha }} -t seeqlregistry.azurecr.io/seeql:latest .
-          docker push seeqlregistry.azurecr.io/seeql:${{ github.sha }}
-          docker push seeqlregistry.azurecr.io/seeql:latest
+          echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
 
-      - name: Configure ACR credentials on Container App
+      # Build and push image to Docker Hub
+      - name: Build and Push Image
         run: |
-          az containerapp registry set \
-            --name seeql-container \
-            --resource-group seeql-rg \
-            --server seeqlregistry.azurecr.io \
-            --username $ACR_USERNAME \
-            --password $ACR_PASSWORD
+          docker buildx build \
+            --platform linux/amd64 \
+            -t sahil796/seeql-container:${{ github.sha }} \
+            -t sahil796/seeql-container:latest \
+            --push .
 
-      - name: Deploy to Container App
+      # Deploy updated image to Azure Container App
+      - name: Deploy to Azure Container App
         run: |
           az containerapp update \
             --name seeql-container \
             --resource-group seeql-rg \
-            --image seeqlregistry.azurecr.io/seeql:${{ github.sha }}
+            --image docker.io/sahil796/seeql-container:${{ github.sha }}
