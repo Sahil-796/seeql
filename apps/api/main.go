@@ -22,10 +22,8 @@ func main() {
 		AllowOrigins: []string{
 			"http://localhost:3000",
 			"http://localhost:3001",
-			"https://*.azurecontainerapps.io",
-			"https://*.vercel.app",
-			"https://seeql.dev",
-			"https://www.seeql.dev",
+			"https://seeql-one.vercel.app",
+
 		},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Session-ID"},
