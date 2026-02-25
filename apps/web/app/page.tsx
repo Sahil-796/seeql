@@ -6,10 +6,13 @@ import {
   Code,
   Copy,
   Database,
+  GripVertical,
   Hammer,
+  Link2,
   Loader2,
   Play,
   Plus,
+  Shield,
   Sparkles,
   Table as TableIcon,
   Trash2,
@@ -24,7 +27,6 @@ import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -108,7 +110,7 @@ function toIdentifier(value: string) {
 }
 
 function quoteIdentifier(value: string) {
-  return `"${value.replace(/"/g, '""')}"`;
+  return `\`${value.replace(/`/g, "``")}\``;
 }
 
 function escapeSqlString(value: string) {
@@ -243,20 +245,25 @@ function formatValue(value: unknown, type: ColumnType) {
 }
 
 function buildCreateTableSql(table: TableDef) {
-  const columns = table.columns.map((col) => {
+  const columnDefs = table.columns.map((col) => {
     const parts = [`${quoteIdentifier(col.name)} ${col.type}`];
     if (col.primary) parts.push("PRIMARY KEY");
     if (!col.nullable) parts.push("NOT NULL");
     if (col.unique && !col.primary) parts.push("UNIQUE");
-    if (col.foreignKey && col.refTable && col.refColumn) {
-      parts.push(
-        `REFERENCES ${quoteIdentifier(col.refTable)}(${quoteIdentifier(col.refColumn)})`,
-      );
-    }
     return parts.join(" ");
   });
 
-  return `CREATE TABLE IF NOT EXISTS ${quoteIdentifier(table.name)} (\n  ${columns.join(",\n  ")}\n)`;
+  // Table-level FOREIGN KEY constraints (vitess can't parse inline REFERENCES)
+  const fkConstraints = table.columns
+    .filter((col) => col.foreignKey && col.refTable && col.refColumn)
+    .map(
+      (col) =>
+        `FOREIGN KEY (${quoteIdentifier(col.name)}) REFERENCES ${quoteIdentifier(col.refTable)}(${quoteIdentifier(col.refColumn)})`,
+    );
+
+  const allDefs = [...columnDefs, ...fkConstraints];
+
+  return `CREATE TABLE ${quoteIdentifier(table.name)} (\n  ${allDefs.join(",\n  ")}\n)`;
 }
 
 function buildInsertSql(table: TableDef, rows: RowDef[]) {
@@ -280,23 +287,42 @@ function formatCellValue(value: unknown): string {
   return String(value);
 }
 
+type RefTarget = { name: string; columns: string[] };
+
 // Components
 function ColumnRow({
   column,
   onUpdate,
   onRemove,
-  tables,
+  refTargets,
 }: {
   column: ColumnDef;
   onUpdate: (updater: (col: ColumnDef) => ColumnDef) => void;
   onRemove: () => void;
-  tables: TableDef[];
+  refTargets: RefTarget[];
 }) {
-  const refTableDef = tables.find((t) => t.name === column.refTable);
+  const refTableDef = refTargets.find((t) => t.name === column.refTable);
+
+  const typeColors: Record<string, string> = {
+    INTEGER: "text-blue-500",
+    FLOAT: "text-cyan-500",
+    TEXT: "text-emerald-500",
+    BOOLEAN: "text-amber-500",
+    DATE: "text-violet-500",
+    TIMESTAMP: "text-violet-500",
+    UUID: "text-pink-500",
+    JSON: "text-orange-500",
+    EMAIL: "text-sky-500",
+    URL: "text-sky-500",
+  };
 
   return (
-    <div className="group space-y-2 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
-      <div className="flex items-center gap-3">
+    <div className="group">
+      <div className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-muted/60 transition-colors">
+        {/* drag handle */}
+        <GripVertical className="h-3.5 w-3.5 text-muted-foreground/30 shrink-0 cursor-grab" />
+
+        {/* column name */}
         <Input
           value={column.name}
           onChange={(e) =>
@@ -308,111 +334,117 @@ function ColumnRow({
               name: toIdentifier(e.target.value),
             }))
           }
-          className="flex-1 h-8 text-sm"
-          placeholder="Column name"
+          className="h-7 text-sm flex-1 min-w-0 font-mono border-0 bg-transparent shadow-none focus-visible:ring-1 px-1.5"
+          placeholder="column_name"
         />
+
+        {/* type selector */}
         <Select
           value={column.type}
           onValueChange={(value) =>
             onUpdate((prev) => ({ ...prev, type: value as ColumnType }))
           }
         >
-          <SelectTrigger className="w-32 h-8" size="sm">
+          <SelectTrigger className={cn("w-28 h-7 text-xs font-mono border-0 bg-muted/50 shadow-none", typeColors[column.type])}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {COLUMN_TYPES.map((type) => (
-              <SelectItem key={type} value={type}>
+              <SelectItem key={type} value={type} className={cn("text-xs font-mono", typeColors[type])}>
                 {type}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1.5">
-            <Checkbox
-              id={`${column.id}-notnull`}
-              checked={!column.nullable}
-              onCheckedChange={(checked) =>
-                onUpdate((prev) => ({ ...prev, nullable: !checked }))
-              }
-            />
-            <Label
-              htmlFor={`${column.id}-notnull`}
-              className="text-xs text-muted-foreground cursor-pointer"
-            >
-              NOT NULL
-            </Label>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <Checkbox
-              id={`${column.id}-pk`}
-              checked={column.primary}
-              onCheckedChange={(checked) =>
-                onUpdate((prev) => ({
-                  ...prev,
-                  primary: !!checked,
-                  unique: checked ? true : prev.unique,
-                }))
-              }
-            />
-            <Label
-              htmlFor={`${column.id}-pk`}
-              className="text-xs text-muted-foreground cursor-pointer"
-            >
-              PK
-            </Label>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <Checkbox
-              id={`${column.id}-unique`}
-              checked={column.unique}
-              onCheckedChange={(checked) =>
-                onUpdate((prev) => ({ ...prev, unique: !!checked }))
-              }
-            />
-            <Label
-              htmlFor={`${column.id}-unique`}
-              className="text-xs text-muted-foreground cursor-pointer"
-            >
-              UNIQUE
-            </Label>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <Checkbox
-              id={`${column.id}-fk`}
-              checked={column.foreignKey}
-              onCheckedChange={(checked) =>
-                onUpdate((prev) => ({
-                  ...prev,
-                  foreignKey: !!checked,
-                  refTable: checked ? prev.refTable : "",
-                  refColumn: checked ? prev.refColumn : "",
-                }))
-              }
-            />
-            <Label
-              htmlFor={`${column.id}-fk`}
-              className="text-xs text-muted-foreground cursor-pointer"
-            >
-              FK
-            </Label>
-          </div>
+
+        {/* constraint pills */}
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            title="Primary Key"
+            onClick={() =>
+              onUpdate((prev) => ({
+                ...prev,
+                primary: !prev.primary,
+                unique: !prev.primary ? true : prev.unique,
+              }))
+            }
+            className={cn(
+              "h-6 w-6 rounded flex items-center justify-center transition-colors text-[10px] font-bold",
+              column.primary
+                ? "bg-amber-500/20 text-amber-600 ring-1 ring-amber-500/40"
+                : "text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted/60"
+            )}
+          >
+            PK
+          </button>
+          <button
+            type="button"
+            title="Not Null"
+            onClick={() =>
+              onUpdate((prev) => ({ ...prev, nullable: !prev.nullable }))
+            }
+            className={cn(
+              "h-6 w-6 rounded flex items-center justify-center transition-colors",
+              !column.nullable
+                ? "bg-red-500/15 text-red-500 ring-1 ring-red-500/30"
+                : "text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted/60"
+            )}
+          >
+            <Shield className="h-3 w-3" />
+          </button>
+          <button
+            type="button"
+            title="Unique"
+            onClick={() =>
+              onUpdate((prev) => ({ ...prev, unique: !prev.unique }))
+            }
+            className={cn(
+              "h-6 w-6 rounded flex items-center justify-center transition-colors text-[10px] font-bold",
+              column.unique && !column.primary
+                ? "bg-purple-500/15 text-purple-500 ring-1 ring-purple-500/30"
+                : "text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted/60"
+            )}
+          >
+            U
+          </button>
+          <button
+            type="button"
+            title="Foreign Key"
+            onClick={() =>
+              onUpdate((prev) => ({
+                ...prev,
+                foreignKey: !prev.foreignKey,
+                refTable: !prev.foreignKey ? prev.refTable : "",
+                refColumn: !prev.foreignKey ? prev.refColumn : "",
+              }))
+            }
+            className={cn(
+              "h-6 w-6 rounded flex items-center justify-center transition-colors",
+              column.foreignKey
+                ? "bg-blue-500/15 text-blue-500 ring-1 ring-blue-500/30"
+                : "text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted/60"
+            )}
+          >
+            <Link2 className="h-3 w-3" />
+          </button>
         </div>
+
+        {/* remove */}
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+          className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground/50 hover:text-destructive shrink-0"
           onClick={onRemove}
         >
-          <X className="h-4 w-4" />
+          <X className="h-3 w-3" />
         </Button>
       </div>
+
+      {/* FK sub-row */}
       {column.foreignKey && (
-        <div className="flex items-center gap-2 pl-1">
-          <span className="text-xs text-muted-foreground whitespace-nowrap">
-            References
-          </span>
+        <div className="flex items-center gap-2 pl-9 pr-3 pb-2">
+          <Link2 className="h-3 w-3 text-blue-400 shrink-0" />
           <Select
             value={column.refTable}
             onValueChange={(value) =>
@@ -423,35 +455,43 @@ function ColumnRow({
               }))
             }
           >
-            <SelectTrigger className="w-36 h-7" size="sm">
-              <SelectValue placeholder="Table" />
+            <SelectTrigger className="h-6 text-xs w-32 border-blue-500/20 bg-blue-500/5">
+              <SelectValue placeholder="table" />
             </SelectTrigger>
             <SelectContent>
-              {tables.map((t) => (
-                <SelectItem key={t.id} value={t.name}>
-                  {t.name}
+              {refTargets.length === 0 ? (
+                <SelectItem value="_none" disabled className="text-xs text-muted-foreground">
+                  no other tables yet
                 </SelectItem>
-              ))}
+              ) : (
+                refTargets.map((t) => (
+                  <SelectItem key={t.name} value={t.name} className="text-xs font-mono">
+                    {t.name}
+                  </SelectItem>
+                ))
+              )}
             </SelectContent>
           </Select>
-          <span className="text-xs text-muted-foreground">.</span>
+          <span className="text-muted-foreground/50 text-xs">.</span>
           <Select
             value={column.refColumn}
             onValueChange={(value) =>
               onUpdate((prev) => ({ ...prev, refColumn: value }))
             }
           >
-            <SelectTrigger className="w-36 h-7" size="sm">
-              <SelectValue placeholder="Column" />
+            <SelectTrigger className="h-6 text-xs w-32 border-blue-500/20 bg-blue-500/5">
+              <SelectValue placeholder="column" />
             </SelectTrigger>
             <SelectContent>
-              {refTableDef?.columns.map((c) => (
-                <SelectItem key={c.id} value={c.name}>
-                  {c.name}
-                </SelectItem>
-              )) ?? (
-                <SelectItem value="" disabled>
-                  Select a table first
+              {refTableDef ? (
+                refTableDef.columns.map((col) => (
+                  <SelectItem key={col} value={col} className="text-xs font-mono">
+                    {col}
+                  </SelectItem>
+                ))
+              ) : (
+                <SelectItem value="_placeholder" disabled className="text-xs">
+                  select a table first
                 </SelectItem>
               )}
             </SelectContent>
@@ -464,7 +504,7 @@ function ColumnRow({
 
 function TableCard({
   table,
-  tables,
+  refTargets,
   onUpdate,
   onRemove,
   onAddColumn,
@@ -473,7 +513,7 @@ function TableCard({
   isCreated,
 }: {
   table: TableDef;
-  tables: TableDef[];
+  refTargets: RefTarget[];
   onUpdate: (updater: (t: TableDef) => TableDef) => void;
   onRemove: () => void;
   onAddColumn: () => void;
@@ -485,92 +525,122 @@ function TableCard({
   isCreated?: boolean;
 }) {
   return (
-    <Card
-      className={cn("overflow-hidden", isCreated && "ring-2 ring-green-500/30")}
+    <div
+      className={cn(
+        "rounded-lg overflow-hidden transition-all",
+        isCreated
+          ? "border border-green-500/25 shadow-[0_0_0_1px_rgba(34,197,94,0.08)]"
+          : "border border-border/50 shadow-sm hover:border-border/70",
+      )}
     >
-      <CardHeader className="pb-3 bg-muted/30">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div
-              className={cn(
-                "p-2 rounded-lg",
-                isCreated ? "bg-green-500/10" : "bg-primary/10",
-              )}
-            >
-              {isCreated ? (
-                <Check className="h-4 w-4 text-green-600" />
-              ) : (
-                <TableIcon className="h-4 w-4 text-primary" />
-              )}
-            </div>
-            <Input
-              value={table.name}
-              onChange={(e) =>
-                onUpdate((prev) => ({
-                  ...prev,
-                  name: e.target.value,
-                }))
-              }
-              onBlur={(e) =>
-                onUpdate((prev) => ({
-                  ...prev,
-                  name: toIdentifier(e.target.value),
-                }))
-              }
-              className="w-48 h-8 font-medium"
-              disabled={isCreated}
-            />
-            <Badge variant="secondary" className="text-xs">
-              {table.columns.length} columns
-            </Badge>
-            {isCreated && (
-              <Badge
-                variant="outline"
-                className="text-xs bg-green-500/10 text-green-600 border-green-500/30"
-              >
-                In Session
-              </Badge>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onAddColumn}
-              disabled={isCreated}
-            >
-              <Plus className="h-3.5 w-3.5 mr-1.5" />
-              Column
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-muted-foreground hover:text-destructive"
-              onClick={onRemove}
-              disabled={isCreated}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
+      {/* Table header */}
+      <div className={cn(
+        "flex items-center gap-2 px-3 py-2.5 border-b",
+        isCreated ? "bg-green-500/5 border-b-green-500/15" : "bg-muted/40 border-b-border/40",
+      )}>
+        <div className={cn(
+          "h-5 w-5 rounded flex items-center justify-center shrink-0",
+          isCreated ? "bg-green-500/15" : "bg-primary/10",
+        )}>
+          {isCreated ? (
+            <Check className="h-3 w-3 text-green-600" />
+          ) : (
+            <TableIcon className="h-3 w-3 text-primary" />
+          )}
         </div>
-      </CardHeader>
-      <CardContent className="p-4 space-y-2">
+
+        <Input
+          value={table.name}
+          onChange={(e) =>
+            onUpdate((prev) => ({ ...prev, name: e.target.value }))
+          }
+          onBlur={(e) =>
+            onUpdate((prev) => ({
+              ...prev,
+              name: toIdentifier(e.target.value),
+            }))
+          }
+          className="h-7 font-mono font-semibold text-sm flex-1 border-0 bg-transparent shadow-none focus-visible:ring-1 px-1.5"
+          disabled={isCreated}
+          placeholder="table_name"
+        />
+
+        <div className="flex items-center gap-1.5 ml-auto">
+          <span className="text-[11px] text-muted-foreground tabular-nums">
+            {table.columns.length} col{table.columns.length !== 1 ? "s" : ""}
+          </span>
+
+          {isCreated ? (
+            <Badge
+              variant="outline"
+              className="text-[10px] h-5 px-1.5 bg-green-500/10 text-green-600 border-green-500/30"
+            >
+              in session
+            </Badge>
+          ) : (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                onClick={onAddColumn}
+              >
+                <Plus className="h-3 w-3 mr-1" />
+                col
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-muted-foreground/50 hover:text-destructive"
+                onClick={onRemove}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Column header row */}
+      {table.columns.length > 0 && (
+        <div className="flex items-center gap-2 px-3 py-1 border-b border-border/30 bg-muted/15">
+          <span className="w-3.5 shrink-0" />
+          <span className="flex-1 text-[10px] uppercase tracking-wider text-muted-foreground/60 font-medium px-1.5">name</span>
+          <span className="w-28 text-[10px] uppercase tracking-wider text-muted-foreground/60 font-medium">type</span>
+          <span className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-muted-foreground/60 font-medium">
+            <span className="w-6 text-center">PK</span>
+            <span className="w-6 text-center">NN</span>
+            <span className="w-6 text-center">UQ</span>
+            <span className="w-6 text-center">FK</span>
+          </span>
+          <span className="w-6 shrink-0" />
+        </div>
+      )}
+
+      {/* Columns */}
+      <div className="divide-y divide-border/25">
         {table.columns.map((column) => (
           <ColumnRow
             key={column.id}
             column={column}
             onUpdate={(updater) => onUpdateColumn(column.id, updater)}
             onRemove={() => onRemoveColumn(column.id)}
-            tables={tables}
+            refTargets={refTargets}
           />
         ))}
-        {table.columns.length === 0 && (
-          <div className="text-center py-8 text-muted-foreground text-sm">
-            No columns yet. Add a column to get started.
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      </div>
+
+      {/* Empty state */}
+      {table.columns.length === 0 && !isCreated && (
+        <div className="px-3 py-6 text-center">
+          <p className="text-xs text-muted-foreground mb-2">No columns yet</p>
+          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={onAddColumn}>
+            <Plus className="h-3 w-3 mr-1" />
+            Add column
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1238,7 +1308,7 @@ export default function PlaygroundPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-sm">
+      <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-sm">
         <div className="flex h-14 items-center justify-between px-6">
           <div className="flex items-center gap-4">
             <Link href="/" className="flex items-center gap-2">
@@ -1325,7 +1395,7 @@ export default function PlaygroundPage() {
           <ResizablePanel defaultSize={50} minSize={25}>
             <div className="h-full overflow-auto">
               {/* Tab Switcher */}
-              <div className="sticky top-0 z-10 bg-background border-b">
+              <div className="sticky top-0 z-10 bg-background border-b border-border/50">
                 <div className="flex">
                   <button
                     type="button"
@@ -1450,8 +1520,8 @@ export default function PlaygroundPage() {
                       ) : (
                         <div className="space-y-3">
                           {sessionTables.map((table) => (
-                            <Card key={table.name} className="overflow-hidden">
-                              <CardHeader className="pb-2 bg-green-500/5 border-b border-green-500/20">
+                            <Card key={table.name} className="overflow-hidden border-border/50">
+                              <CardHeader className="pb-2 bg-green-500/5 border-b border-green-500/15">
                                 <div className="flex items-center gap-3">
                                   <div className="p-1.5 rounded-md bg-green-500/10">
                                     <Check className="h-3.5 w-3.5 text-green-600" />
@@ -1567,222 +1637,218 @@ export default function PlaygroundPage() {
                     )}
                   </>
                 ) : (
-                  <>
-                    {/* Schema Builder */}
-                    <section>
-                      <div className="flex items-center justify-between mb-4">
-                        <div>
-                          <p className="text-sm text-muted-foreground">
-                            Design tables visually and push them to your
-                            session.
-                          </p>
-                        </div>
-                      </div>
+                   <>
+                     {/* Schema Builder */}
+                     <section>
+                       {/* Builder Action Bar */}
+                       <div className="flex items-center gap-2 mb-4">
+                         <Button variant="outline" size="sm" className="h-8" onClick={addTable}>
+                           <Plus className="h-3.5 w-3.5 mr-1.5" />
+                           New Table
+                         </Button>
+                         {tables.length > 0 && (
+                           <>
+                             <Button
+                               variant="outline"
+                               size="sm"
+                               className="h-8"
+                               onClick={handleGenerateData}
+                               disabled={isGenerating || tables.length === 0}
+                             >
+                               {isGenerating ? (
+                                 <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                               ) : (
+                                 <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+                               )}
+                               Auto-fill
+                             </Button>
+                             <div className="flex items-center gap-1.5 ml-auto">
+                               <Label
+                                 htmlFor="rows-count"
+                                 className="text-xs text-muted-foreground whitespace-nowrap"
+                               >
+                                 rows:
+                               </Label>
+                               <Input
+                                 id="rows-count"
+                                 type="number"
+                                 value={rowsPerTable}
+                                 onChange={(e) =>
+                                   setRowsPerTable(
+                                     Math.max(
+                                       1,
+                                       Math.min(
+                                         20,
+                                         Number.parseInt(e.target.value, 10) ||
+                                           1,
+                                       ),
+                                     ),
+                                   )
+                                 }
+                                 className="w-14 h-7 text-xs text-center"
+                                 min={1}
+                                 max={20}
+                               />
+                             </div>
+                           </>
+                         )}
+                       </div>
 
-                      {/* Builder Action Bar */}
-                      <div className="flex items-center gap-2 mb-4">
-                        <Button variant="outline" size="sm" onClick={addTable}>
-                          <Plus className="h-3.5 w-3.5 mr-1.5" />
-                          Add Table
-                        </Button>
-                        {tables.length > 0 && (
-                          <>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={handleGenerateData}
-                              disabled={isGenerating || tables.length === 0}
-                            >
-                              {isGenerating ? (
-                                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                              ) : (
-                                <Sparkles className="h-3.5 w-3.5 mr-1.5" />
-                              )}
-                              Auto-fill Data
-                            </Button>
-                            <div className="flex items-center gap-1.5 ml-auto">
-                              <Label
-                                htmlFor="rows-count"
-                                className="text-xs text-muted-foreground"
-                              >
-                                Rows:
-                              </Label>
-                              <Input
-                                id="rows-count"
-                                type="number"
-                                value={rowsPerTable}
-                                onChange={(e) =>
-                                  setRowsPerTable(
-                                    Math.max(
-                                      1,
-                                      Math.min(
-                                        20,
-                                        Number.parseInt(e.target.value, 10) ||
-                                          1,
-                                      ),
-                                    ),
-                                  )
-                                }
-                                className="w-14 h-7 text-xs"
-                                min={1}
-                                max={20}
-                              />
-                            </div>
-                          </>
-                        )}
-                      </div>
+                       {/* Table Cards */}
+                       {tables.length === 0 ? (
+                         <div className="rounded-lg border border-dashed border-border/60 py-12 text-center">
+                           <div className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-muted/50 mb-3">
+                             <TableIcon className="h-5 w-5 text-muted-foreground/50" />
+                           </div>
+                           <p className="text-sm text-muted-foreground mb-3">
+                             No tables yet
+                           </p>
+                           <Button variant="outline" size="sm" onClick={addTable}>
+                             <Plus className="h-3.5 w-3.5 mr-1.5" />
+                             Add your first table
+                           </Button>
+                         </div>
+                        ) : (
+                          <div className="space-y-3">
+                            {tables.map((table) => {
+                              const isPushed = pushedTableIds.has(table.id);
+                              const hasRows =
+                                (rowsByTable[table.id] ?? []).length > 0;
 
-                      {/* Table Cards */}
-                      {tables.length === 0 ? (
-                        <Card className="border-dashed">
-                          <CardContent className="p-6 text-center">
-                            <TableIcon className="h-10 w-10 mx-auto mb-3 text-muted-foreground/50" />
-                            <p className="text-sm text-muted-foreground mb-3">
-                              No tables defined yet.
-                            </p>
-                            <Button variant="outline" onClick={addTable}>
-                              <Plus className="h-4 w-4 mr-1.5" />
-                              Add Your First Table
-                            </Button>
-                          </CardContent>
-                        </Card>
-                      ) : (
-                        <div className="space-y-4">
-                          {tables.map((table) => {
-                            const isPushed = pushedTableIds.has(table.id);
-                            const hasRows =
-                              (rowsByTable[table.id] ?? []).length > 0;
+                              // FK ref targets: session tables + other builder tables (not self)
+                              const builderTargets: RefTarget[] = tables
+                                .filter((t) => t.id !== table.id && t.name !== "")
+                                .map((t) => ({
+                                  name: t.name,
+                                  columns: t.columns.map((c) => c.name).filter(Boolean),
+                                }));
+                              const sessionTargets: RefTarget[] = sessionTables
+                                .filter((t) => !tables.some((bt) => bt.name === t.name))
+                                .map((t) => ({
+                                  name: t.name,
+                                  columns: t.columns.map((c) => c.name),
+                                }));
+                              const refTargets: RefTarget[] = [...sessionTargets, ...builderTargets];
 
-                            return (
-                              <div key={table.id} className="space-y-2">
-                                <TableCard
-                                  table={table}
-                                  tables={tables}
-                                  onUpdate={(updater) =>
-                                    updateTable(table.id, updater)
-                                  }
-                                  onRemove={() => removeTable(table.id)}
-                                  onAddColumn={() => addColumn(table.id)}
-                                  onUpdateColumn={(colId, updater) =>
-                                    updateColumn(table.id, colId, updater)
-                                  }
-                                  onRemoveColumn={(colId) =>
-                                    removeColumn(table.id, colId)
-                                  }
-                                  isCreated={isPushed}
-                                />
+                              return (
+                                <div key={table.id} className="space-y-1.5">
+                                  <TableCard
+                                    table={table}
+                                    refTargets={refTargets}
+                                    onUpdate={(updater) =>
+                                      updateTable(table.id, updater)
+                                    }
+                                    onRemove={() => removeTable(table.id)}
+                                    onAddColumn={() => addColumn(table.id)}
+                                    onUpdateColumn={(colId, updater) =>
+                                      updateColumn(table.id, colId, updater)
+                                    }
+                                    onRemoveColumn={(colId) =>
+                                      removeColumn(table.id, colId)
+                                    }
+                                    isCreated={isPushed}
+                                  />
 
-                                {/* Data Preview */}
-                                {hasRows && !isPushed && (
-                                  <div className="ml-2">
-                                    <DataPreviewTable
-                                      table={table}
-                                      rows={rowsByTable[table.id] ?? []}
-                                      onUpdateRow={(rowIndex, colName, value) =>
-                                        updateRowValue(
-                                          table.id,
-                                          rowIndex,
-                                          colName,
-                                          value,
-                                        )
-                                      }
-                                      onRemoveRow={(rowIndex) =>
-                                        removeRow(table.id, rowIndex)
-                                      }
-                                      onAddRow={() => addRow(table.id)}
-                                    />
-                                  </div>
-                                )}
+                                 {/* Data Preview */}
+                                 {hasRows && !isPushed && (
+                                   <div className="ml-1">
+                                     <DataPreviewTable
+                                       table={table}
+                                       rows={rowsByTable[table.id] ?? []}
+                                       onUpdateRow={(rowIndex, colName, value) =>
+                                         updateRowValue(
+                                           table.id,
+                                           rowIndex,
+                                           colName,
+                                           value,
+                                         )
+                                       }
+                                       onRemoveRow={(rowIndex) =>
+                                         removeRow(table.id, rowIndex)
+                                       }
+                                       onAddRow={() => addRow(table.id)}
+                                     />
+                                   </div>
+                                 )}
 
-                                {/* Push single table button */}
-                                {!isPushed &&
-                                  sessionId &&
-                                  table.columns.length > 0 && (
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      className="w-full border-dashed text-muted-foreground hover:text-foreground"
-                                      onClick={() =>
-                                        handlePushSingleTable(table.id)
-                                      }
-                                      disabled={isPushing}
-                                    >
-                                      {isPushing ? (
-                                        <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                                      ) : (
-                                        <Upload className="h-3.5 w-3.5 mr-1.5" />
-                                      )}
-                                      {hasRows
-                                        ? `Create "${table.name}" with ${(rowsByTable[table.id] ?? []).length} rows`
-                                        : `Create "${table.name}" in Session`}
-                                    </Button>
-                                  )}
+                                 {/* Push single table */}
+                                 {!isPushed && sessionId && table.columns.length > 0 && (
+                                   <button
+                                     type="button"
+                                     className="w-full flex items-center justify-center gap-2 py-1.5 rounded-md border border-dashed border-border/50 text-xs text-muted-foreground hover:text-foreground hover:border-border hover:bg-muted/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                     onClick={() => handlePushSingleTable(table.id)}
+                                     disabled={isPushing}
+                                   >
+                                     {isPushing ? (
+                                       <Loader2 className="h-3 w-3 animate-spin" />
+                                     ) : (
+                                       <Upload className="h-3 w-3" />
+                                     )}
+                                     {hasRows
+                                       ? `Push "${table.name}" with ${(rowsByTable[table.id] ?? []).length} rows`
+                                       : `Push "${table.name}" to session`}
+                                   </button>
+                                 )}
 
-                                {isPushed && (
-                                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-500/10 text-green-700 text-xs">
-                                    <Check className="h-3.5 w-3.5" />
-                                    <span>Pushed to session</span>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
+                                 {isPushed && (
+                                   <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-md bg-green-500/8 text-green-600 text-xs">
+                                     <Check className="h-3 w-3" />
+                                     <span>In session</span>
+                                   </div>
+                                 )}
+                               </div>
+                             );
+                           })}
+                         </div>
+                       )}
 
-                      {/* Push All to Session */}
-                      {tables.length > 0 &&
-                        sessionId &&
-                        tables.some(
-                          (t) =>
-                            !pushedTableIds.has(t.id) && t.columns.length > 0,
-                        ) && (
-                          <div className="mt-6 pt-4 border-t">
-                            <Button
-                              className="w-full"
-                              onClick={() => handlePushToSession()}
-                              disabled={isPushing || !sessionId}
-                            >
-                              {isPushing ? (
-                                <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-                              ) : (
-                                <Upload className="h-4 w-4 mr-1.5" />
-                              )}
-                              Push All Tables to Session
-                            </Button>
-                            <p className="text-[11px] text-muted-foreground mt-2 text-center">
-                              Creates tables
-                              {tables.some(
-                                (t) => (rowsByTable[t.id] ?? []).length > 0,
-                              )
-                                ? " and inserts data"
-                                : ""}{" "}
-                              in your active session
-                            </p>
-                          </div>
-                        )}
+                       {/* Push All to Session */}
+                       {tables.length > 0 &&
+                         sessionId &&
+                         tables.some(
+                           (t) =>
+                             !pushedTableIds.has(t.id) && t.columns.length > 0,
+                         ) && (
+                           <div className="mt-4 pt-4 border-t">
+                             <Button
+                               className="w-full"
+                               onClick={() => handlePushToSession()}
+                               disabled={isPushing || !sessionId}
+                             >
+                               {isPushing ? (
+                                 <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                               ) : (
+                                 <Upload className="h-4 w-4 mr-1.5" />
+                               )}
+                               Push All Tables
+                             </Button>
+                           </div>
+                         )}
 
-                      {/* No session warning */}
-                      {tables.length > 0 && !sessionId && (
-                        <div className="mt-4 p-3 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-700 text-xs">
-                          Start a session first to push tables.
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="mt-2 w-full"
-                            onClick={handleCreateSession}
-                            disabled={isSessionLoading || !isServerOnline}
-                          >
-                            {isSessionLoading ? (
-                              <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-                            ) : (
-                              <Play className="h-4 w-4 mr-1.5" />
-                            )}
-                            Start Session
-                          </Button>
-                        </div>
-                      )}
-                    </section>
+                       {/* No session warning */}
+                       {tables.length > 0 && !sessionId && (
+                         <div className="mt-4 p-3 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-700 text-xs flex items-start gap-2">
+                           <span className="shrink-0 mt-0.5">⚠</span>
+                           <div className="flex-1">
+                             <p className="mb-2">Start a session to push tables.</p>
+                             <Button
+                               variant="outline"
+                               size="sm"
+                               className="w-full h-7 text-xs"
+                               onClick={handleCreateSession}
+                               disabled={isSessionLoading || !isServerOnline}
+                             >
+                               {isSessionLoading ? (
+                                 <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                               ) : (
+                                 <Play className="h-3.5 w-3.5 mr-1.5" />
+                               )}
+                               Start Session
+                             </Button>
+                           </div>
+                         </div>
+                       )}
+                     </section>
                   </>
                 )}
               </div>
@@ -1795,7 +1861,7 @@ export default function PlaygroundPage() {
           <ResizablePanel defaultSize={50} minSize={40}>
             <div className="h-full flex flex-col">
               {/* Query Section */}
-              <div className="p-6 border-b space-y-4">
+              <div className="p-6 border-b border-border/50 space-y-4">
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-semibold flex items-center gap-2">
                     <Code className="h-5 w-5" />
@@ -1864,7 +1930,7 @@ export default function PlaygroundPage() {
               </div>
 
               {/* SQL Preview (Collapsible) */}
-              <details className="border-t">
+              <details className="border-t border-border/40">
                 <summary className="px-6 py-3 cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground flex items-center gap-2">
                   <ChevronDown className="h-4 w-4" />
                   View Generated SQL
