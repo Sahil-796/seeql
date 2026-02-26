@@ -1,7 +1,4 @@
 <!-- markdownlint-disable MD041 -->
-<p align="center">
-  <img src="https://via.placeholder.com/120x120?text=SQL" alt="Seeql Logo" />
-</p>
 
 <h1 align="center">Seeql</h1>
 
