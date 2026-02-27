@@ -32,9 +32,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`${jetbrainsMono.variable} antialiased`}>
         <ThemeProvider>
-          <ServerStatusProvider>
-            {children}
-          </ServerStatusProvider>
+          <ServerStatusProvider>{children}</ServerStatusProvider>
         </ThemeProvider>
       </body>
     </html>

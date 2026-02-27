@@ -1,6 +1,6 @@
 "use client";
 
-import { Moon, Sun, Monitor, Palette } from "lucide-react";
+import { Monitor, Moon, Palette, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useTheme } from "@/lib/theme-context";
-import { themes, type ThemeId } from "@/lib/themes";
+import { type ThemeId, themes } from "@/lib/themes";
 
 export function ThemeSwitcher() {
   const { themeId, colorMode, setThemeId, setColorMode } = useTheme();

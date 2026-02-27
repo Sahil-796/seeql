@@ -1,7 +1,7 @@
 "use client";
 
-import * as React from "react";
 import { GripVertical } from "lucide-react";
+import type * as React from "react";
 import * as ResizablePrimitive from "react-resizable-panels";
 
 import { cn } from "@/lib/utils";
@@ -25,7 +25,7 @@ const ResizableHandle = ({
       "data-[panel-group-direction=vertical]:h-px data-[panel-group-direction=vertical]:w-full",
       "data-[panel-group-direction=vertical]:after:left-0 data-[panel-group-direction=vertical]:after:h-1 data-[panel-group-direction=vertical]:after:w-full data-[panel-group-direction=vertical]:after:-translate-y-1/2 data-[panel-group-direction=vertical]:after:translate-x-0",
       "[&[data-panel-group-direction=vertical]>div]:rotate-90",
-      className
+      className,
     )}
     {...props}
   >

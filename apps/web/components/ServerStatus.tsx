@@ -36,7 +36,9 @@ export function useServerStatus() {
 
 export function ServerStatusProvider({
   children,
-}: { children: React.ReactNode }) {
+}: {
+  children: React.ReactNode;
+}) {
   const [status, setStatus] = useState<Status>("checking");
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
   const [coldStartElapsed, setColdStartElapsed] = useState(0);
@@ -141,7 +143,9 @@ export function ServerStatusProvider({
   }, [status]);
 
   return (
-    <ServerStatusContext value={{ status, isServerOnline: status === "online" }}>
+    <ServerStatusContext
+      value={{ status, isServerOnline: status === "online" }}
+    >
       {visible && (
         <div
           className={`

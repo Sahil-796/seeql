@@ -9,20 +9,59 @@ import (
 )
 
 // BuildSchema builds a schema from a SQL query string.
-// Handles both SELECT and CREATE TABLE statements.
+// Handles one or more CREATE TABLE statements (separated by semicolons),
+// or a single SELECT statement.
 func BuildSchema(query string) (*Schema, error) {
-
-	if parser.IsCreateTable(query) {
-		return buildSchemaFromDDL(query)
+	trimmed := strings.TrimSpace(query)
+	if trimmed == "" {
+		return nil, fmt.Errorf("empty query")
 	}
 
-	// Parse as SELECT statement
-	stmt, err := parser.Parse(query)
+	// Split into individual statements on semicolons
+	rawStmts := strings.Split(trimmed, ";")
+	var createStmts []string
+	var selectStmts []string
+	for _, raw := range rawStmts {
+		s := strings.TrimSpace(raw)
+		if s == "" {
+			continue
+		}
+		if parser.IsCreateTable(s) {
+			createStmts = append(createStmts, s)
+		} else {
+			selectStmts = append(selectStmts, s)
+		}
+	}
+
+	if len(createStmts) > 0 {
+		return buildSchemaFromMultipleDDL(createStmts)
+	}
+
+	// Fall back to SELECT parsing (use first non-empty statement)
+	if len(selectStmts) == 0 {
+		return nil, fmt.Errorf("no valid SQL statements found")
+	}
+	stmt, err := parser.Parse(selectStmts[0])
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse SQL: %w", err)
 	}
-
 	return buildSchemaFromSelect(stmt)
+}
+
+// buildSchemaFromMultipleDDL parses one or more CREATE TABLE statements and
+// merges them into a single Schema.
+func buildSchemaFromMultipleDDL(stmts []string) (*Schema, error) {
+	merged := &Schema{
+		Tables: make([]TableSchema, 0, len(stmts)),
+	}
+	for _, stmt := range stmts {
+		s, err := buildSchemaFromDDL(stmt)
+		if err != nil {
+			return nil, err
+		}
+		merged.Tables = append(merged.Tables, s.Tables...)
+	}
+	return merged, nil
 }
 
 func buildSchemaFromDDL(query string) (*Schema, error) {
@@ -47,6 +86,9 @@ func buildSchemaFromDDL(query string) (*Schema, error) {
 			Type:      col.Type,
 			Nullable:  col.Nullable,
 			IsPrimary: col.IsPrimary,
+			IsForeign: col.IsForeign,
+			RefTable:  col.RefTable,
+			RefColumn: col.RefColumn,
 			Constraints: Constraints{
 				Unique: col.IsUnique,
 			},

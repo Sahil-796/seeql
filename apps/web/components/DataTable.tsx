@@ -5,7 +5,6 @@ import { useMemo, useState } from "react";
 import {
   Table,
   TableBody,
-  TableCaption,
   TableCell,
   TableHead,
   TableHeader,
@@ -35,7 +34,7 @@ export function DataTable({
   maxRows = 50,
   getRowKey,
 }: DataTableProps) {
-  const [page, setPage] = useState(0);
+  const [page, _setPage] = useState(0);
 
   const columns = useMemo(() => {
     if (data.length === 0) return [];
