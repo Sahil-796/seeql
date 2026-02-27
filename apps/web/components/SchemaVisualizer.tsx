@@ -1,6 +1,6 @@
 "use client";
 
-import type { Schema, ColumnSchema } from "@/lib/types";
+import type { ColumnSchema, Schema } from "@/lib/types";
 
 interface SchemaVisualizerProps {
   schema: Schema;
@@ -79,11 +79,14 @@ export function SchemaVisualizer({
 
       {schema.relationships && schema.relationships.length > 0 && (
         <div className="pt-4 border-t border-current/10">
-          <h4 className="text-sm font-semibold mb-2 opacity-70">Relationships</h4>
+          <h4 className="text-sm font-semibold mb-2 opacity-70">
+            Relationships
+          </h4>
           <div className="space-y-1 text-sm opacity-60">
             {schema.relationships.map((rel, i) => (
               <div key={i}>
-                {rel.LeftTable}.{rel.LeftColumn} → {rel.RightTable}.{rel.RightColumn}
+                {rel.LeftTable}.{rel.LeftColumn} → {rel.RightTable}.
+                {rel.RightColumn}
               </div>
             ))}
           </div>

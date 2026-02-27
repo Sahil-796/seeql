@@ -1,7 +1,13 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { type ThemeId, getThemeById } from "./themes";
+import {
+  createContext,
+  type ReactNode,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
+import { getThemeById, type ThemeId } from "./themes";
 
 type ColorMode = "light" | "dark" | "system";
 
@@ -16,7 +22,9 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 function getSystemColorMode(): "light" | "dark" {
   if (typeof window === "undefined") return "dark";
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  return window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
@@ -27,7 +35,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   // Load saved preferences
   useEffect(() => {
     const savedTheme = localStorage.getItem("seeql-theme") as ThemeId | null;
-    const savedMode = localStorage.getItem("seeql-color-mode") as ColorMode | null;
+    const savedMode = localStorage.getItem(
+      "seeql-color-mode",
+    ) as ColorMode | null;
     if (savedTheme) setThemeId(savedTheme);
     if (savedMode) setColorMode(savedMode);
     setMounted(true);
@@ -38,7 +48,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     if (!mounted) return;
 
     const theme = getThemeById(themeId);
-    const effectiveMode = colorMode === "system" ? getSystemColorMode() : colorMode;
+    const effectiveMode =
+      colorMode === "system" ? getSystemColorMode() : colorMode;
     const vars = theme.cssVars[effectiveMode];
 
     const root = document.documentElement;
@@ -72,7 +83,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [colorMode, themeId]);
 
   return (
-    <ThemeContext.Provider value={{ themeId, colorMode, setThemeId, setColorMode }}>
+    <ThemeContext.Provider
+      value={{ themeId, colorMode, setThemeId, setColorMode }}
+    >
       {children}
     </ThemeContext.Provider>
   );

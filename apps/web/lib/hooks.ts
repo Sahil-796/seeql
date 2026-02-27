@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useTransition } from "react";
+import { useCallback, useState, useTransition } from "react";
 import { api } from "./api";
 import type { QueryState } from "./types";
 
@@ -54,7 +54,8 @@ export function useSeeql() {
           });
         });
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to run query";
+        const message =
+          err instanceof Error ? err.message : "Failed to run query";
         setState((prev) => ({
           ...prev,
           isLoading: false,
@@ -62,7 +63,7 @@ export function useSeeql() {
         }));
       }
     },
-    []
+    [],
   );
 
   const reset = useCallback(() => {

@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - master
+    paths-ignore:
+      - 'apps/web/**'
   workflow_dispatch:
 
 jobs:

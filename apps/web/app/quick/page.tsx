@@ -22,8 +22,8 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { useSeeql } from "@/lib/hooks";
-import { cn } from "@/lib/utils";
 import type { Schema } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 const EXAMPLE_QUERY = `SELECT u.id, u.name, o.total
 FROM users u
@@ -39,16 +39,26 @@ function SchemaBlock({ schema }: { schema: Schema }) {
           </div>
           {table.columns.map((col) => (
             <div key={col.name} className="pl-4 py-0.5">
-              <span className="text-amber-500 dark:text-amber-400">{col.name}</span>
+              <span className="text-amber-500 dark:text-amber-400">
+                {col.name}
+              </span>
               <span className="text-muted-foreground"> : </span>
-              <span className="text-green-600 dark:text-green-400">{col.type || "TEXT"}</span>
+              <span className="text-green-600 dark:text-green-400">
+                {col.type || "TEXT"}
+              </span>
               {col.is_primary && (
-                <Badge variant="outline" className="ml-2 text-[10px] px-1 py-0 h-4 bg-amber-500/10 border-amber-500/30 text-amber-600">
+                <Badge
+                  variant="outline"
+                  className="ml-2 text-[10px] px-1 py-0 h-4 bg-amber-500/10 border-amber-500/30 text-amber-600"
+                >
                   PK
                 </Badge>
               )}
               {col.is_foreign && (
-                <Badge variant="outline" className="ml-2 text-[10px] px-1 py-0 h-4 bg-blue-500/10 border-blue-500/30 text-blue-600">
+                <Badge
+                  variant="outline"
+                  className="ml-2 text-[10px] px-1 py-0 h-4 bg-blue-500/10 border-blue-500/30 text-blue-600"
+                >
                   FK → {col.ref_table}.{col.ref_column}
                 </Badge>
               )}
@@ -59,15 +69,21 @@ function SchemaBlock({ schema }: { schema: Schema }) {
       ))}
       {schema.relationships && schema.relationships.length > 0 && (
         <div className="pt-3 border-t">
-          <div className="text-muted-foreground text-xs mb-2 uppercase tracking-wider">Relationships</div>
+          <div className="text-muted-foreground text-xs mb-2 uppercase tracking-wider">
+            Relationships
+          </div>
           {schema.relationships.map((rel) => (
             <div
               key={`${rel.LeftTable}.${rel.LeftColumn}-${rel.RightTable}.${rel.RightColumn}`}
               className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 py-0.5"
             >
-              <span>{rel.LeftTable}.{rel.LeftColumn}</span>
+              <span>
+                {rel.LeftTable}.{rel.LeftColumn}
+              </span>
               <ChevronRight className="h-3 w-3" />
-              <span>{rel.RightTable}.{rel.RightColumn}</span>
+              <span>
+                {rel.RightTable}.{rel.RightColumn}
+              </span>
             </div>
           ))}
         </div>
@@ -102,7 +118,10 @@ export default function QuickModePage() {
     }
   };
 
-  const hasResults = schema || (rows && rows.length > 0) || (data && Object.keys(data).length > 0);
+  const hasResults =
+    schema ||
+    (rows && rows.length > 0) ||
+    (data && Object.keys(data).length > 0);
 
   return (
     <div className="min-h-screen bg-background">
@@ -111,7 +130,9 @@ export default function QuickModePage() {
         <div className="flex h-14 items-center justify-between px-6">
           <div className="flex items-center gap-4">
             <Link href="/" className="flex items-center gap-2">
-              <span className="text-lg font-semibold tracking-tight">SeeQL</span>
+              <span className="text-lg font-semibold tracking-tight">
+                SeeQL
+              </span>
             </Link>
             <Badge variant="secondary" className="font-normal">
               Quick Mode
@@ -142,7 +163,6 @@ export default function QuickModePage() {
           {/* Output panel */}
           <ResizablePanel defaultSize={68} minSize={30}>
             <div className="h-full overflow-y-auto p-6 space-y-4">
-
               {/* Empty state */}
               {!sql.trim() && !isLoading && (
                 <div className="flex flex-col items-center justify-center h-full min-h-[200px] text-center">
@@ -153,7 +173,8 @@ export default function QuickModePage() {
                     Write a SQL query to get started
                   </p>
                   <p className="text-xs text-muted-foreground max-w-xs">
-                    SeeQL will infer your schema and generate realistic mock data automatically.
+                    SeeQL will infer your schema and generate realistic mock
+                    data automatically.
                   </p>
                 </div>
               )}
@@ -168,7 +189,9 @@ export default function QuickModePage() {
                       className="w-full flex items-start gap-2 px-3 py-1.5 rounded-md bg-muted/30 text-xs font-mono text-muted-foreground hover:bg-muted/50 transition-colors text-left"
                       onClick={() => setSql(cmd)}
                     >
-                      <span className="text-primary/50 select-none shrink-0 mt-0.5">›</span>
+                      <span className="text-primary/50 select-none shrink-0 mt-0.5">
+                        ›
+                      </span>
                       <span className="truncate">{cmd}</span>
                     </button>
                   ))}
@@ -217,8 +240,12 @@ export default function QuickModePage() {
               )}
 
               {/* Results grid */}
-              <div className={cn("grid gap-4", isSplitView ? "lg:grid-cols-2" : "grid-cols-1")}>
-
+              <div
+                className={cn(
+                  "grid gap-4",
+                  isSplitView ? "lg:grid-cols-2" : "grid-cols-1",
+                )}
+              >
                 {/* Inferred Schema */}
                 {schema && (
                   <Card>
@@ -227,9 +254,15 @@ export default function QuickModePage() {
                         <div className="p-1.5 rounded-md bg-primary/10">
                           <ChevronRight className="h-4 w-4 text-primary" />
                         </div>
-                        <span className="font-medium text-sm">Inferred Schema</span>
-                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 ml-auto">
-                          {schema.tables.length} table{schema.tables.length !== 1 ? "s" : ""}
+                        <span className="font-medium text-sm">
+                          Inferred Schema
+                        </span>
+                        <Badge
+                          variant="secondary"
+                          className="text-[10px] px-1.5 py-0 h-4 ml-auto"
+                        >
+                          {schema.tables.length} table
+                          {schema.tables.length !== 1 ? "s" : ""}
                         </Badge>
                       </div>
                     </CardHeader>
@@ -247,9 +280,15 @@ export default function QuickModePage() {
                         <div className="p-1.5 rounded-md bg-green-500/10">
                           <ChevronRight className="h-4 w-4 text-green-600" />
                         </div>
-                        <span className="font-medium text-sm">Generated Data</span>
-                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 ml-auto">
-                          {Object.keys(data).length} table{Object.keys(data).length !== 1 ? "s" : ""}
+                        <span className="font-medium text-sm">
+                          Generated Data
+                        </span>
+                        <Badge
+                          variant="secondary"
+                          className="text-[10px] px-1.5 py-0 h-4 ml-auto"
+                        >
+                          {Object.keys(data).length} table
+                          {Object.keys(data).length !== 1 ? "s" : ""}
                         </Badge>
                       </div>
                     </CardHeader>
@@ -266,7 +305,10 @@ export default function QuickModePage() {
                           cellClassName="border-b"
                           getRowKey={(row, index) =>
                             String(
-                              row.id ?? row.ID ?? row.Id ?? `${tableName}-${index}`,
+                              row.id ??
+                                row.ID ??
+                                row.Id ??
+                                `${tableName}-${index}`,
                             )
                           }
                         />
@@ -283,9 +325,14 @@ export default function QuickModePage() {
                         <div className="p-1.5 rounded-md bg-blue-500/10">
                           <ChevronRight className="h-4 w-4 text-blue-600" />
                         </div>
-                        <span className="font-medium text-sm">Query Results</span>
+                        <span className="font-medium text-sm">
+                          Query Results
+                        </span>
                         {resultRowCount != null && (
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 ml-auto">
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] px-1.5 py-0 h-4 ml-auto"
+                          >
                             {resultRowCount} rows
                           </Badge>
                         )}
@@ -306,7 +353,9 @@ export default function QuickModePage() {
                         captionClassName="text-muted-foreground"
                         cellClassName="border-b"
                         getRowKey={(row, index) =>
-                          String(row.id ?? row.ID ?? row.Id ?? `result-${index}`)
+                          String(
+                            row.id ?? row.ID ?? row.Id ?? `result-${index}`,
+                          )
                         }
                       />
                     </CardContent>
@@ -332,12 +381,16 @@ export default function QuickModePage() {
               {/* Toolbar */}
               <div className="flex items-center justify-between px-5 py-2.5 border-b bg-muted/20">
                 <div className="flex items-center gap-3">
-                  <span className="text-xs text-muted-foreground">Rows per table</span>
+                  <span className="text-xs text-muted-foreground">
+                    Rows per table
+                  </span>
                   <input
                     type="number"
                     value={rowCount}
                     onChange={(e) =>
-                      setRowCount(Math.max(1, parseInt(e.target.value, 10) || 1))
+                      setRowCount(
+                        Math.max(1, parseInt(e.target.value, 10) || 1),
+                      )
                     }
                     className="w-14 h-7 bg-background border border-border rounded-md px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                     min={1}
@@ -378,19 +431,25 @@ export default function QuickModePage() {
               {isRefOpen && (
                 <div className="border-b bg-muted/10 px-5 py-3 grid grid-cols-3 gap-4 text-xs text-muted-foreground">
                   <div>
-                    <div className="font-medium text-foreground mb-1.5">Supported</div>
+                    <div className="font-medium text-foreground mb-1.5">
+                      Supported
+                    </div>
                     <div>SELECT with JOINs</div>
                     <div>Multiple tables</div>
                     <div>Column aliases</div>
                   </div>
                   <div>
-                    <div className="font-medium text-foreground mb-1.5">Auto-detected</div>
+                    <div className="font-medium text-foreground mb-1.5">
+                      Auto-detected
+                    </div>
                     <div>Primary keys (id)</div>
                     <div>Foreign keys (*_id)</div>
                     <div>Relationships</div>
                   </div>
                   <div>
-                    <div className="font-medium text-foreground mb-1.5">Example</div>
+                    <div className="font-medium text-foreground mb-1.5">
+                      Example
+                    </div>
                     <pre className="text-blue-600 dark:text-blue-400 whitespace-pre-wrap leading-relaxed">{`SELECT u.name, p.title
 FROM users u
 JOIN posts p
@@ -401,7 +460,9 @@ ON u.id = p.user_id`}</pre>
 
               {/* Textarea */}
               <div className="flex flex-1 min-h-0 items-start gap-2 p-4">
-                <span className="text-primary/60 pt-1 text-sm select-none font-mono">›</span>
+                <span className="text-primary/60 pt-1 text-sm select-none font-mono">
+                  ›
+                </span>
                 <textarea
                   value={sql}
                   onChange={(e) => setSql(e.target.value)}
@@ -430,10 +491,14 @@ ON u.id = p.user_id`}</pre>
 
               {/* Footer hint */}
               <div className="px-5 pb-3 flex items-center gap-1.5 text-xs text-muted-foreground/60">
-                <kbd className="px-1.5 py-0.5 rounded bg-muted border text-[10px]">Cmd+Enter</kbd>
+                <kbd className="px-1.5 py-0.5 rounded bg-muted border text-[10px]">
+                  Cmd+Enter
+                </kbd>
                 <span>to run</span>
                 <span className="mx-1">·</span>
-                <kbd className="px-1.5 py-0.5 rounded bg-muted border text-[10px]">Tab</kbd>
+                <kbd className="px-1.5 py-0.5 rounded bg-muted border text-[10px]">
+                  Tab
+                </kbd>
                 <span>to indent</span>
               </div>
             </div>
