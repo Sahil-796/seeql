@@ -19,7 +19,7 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useServerStatus } from "@/components/ServerStatus";
 import { SQLEditor } from "@/components/SQLEditor";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
@@ -286,6 +286,39 @@ function buildInsertSql(table: TableDef, rows: RowDef[]) {
 
     return `INSERT INTO ${quoteIdentifier(table.name)} (${colNames.join(", ")}) VALUES (${values.join(", ")})`;
   });
+}
+
+function normalizeColumnType(type: string): ColumnType {
+  const upper = type.toUpperCase();
+  if (upper.startsWith("INT")) return "INTEGER";
+  if (upper.startsWith("FLOAT") || upper.startsWith("DOUBLE")) return "FLOAT";
+  if (upper.startsWith("DECIMAL")) return "FLOAT";
+  if (upper.startsWith("BOOL")) return "BOOLEAN";
+  if (upper.startsWith("DATE")) return "DATE";
+  if (upper.startsWith("TIMESTAMP")) return "TIMESTAMP";
+  if (upper.startsWith("UUID")) return "UUID";
+  if (upper.startsWith("JSON")) return "JSON";
+  if (upper.startsWith("EMAIL")) return "EMAIL";
+  if (upper.startsWith("URL")) return "URL";
+  return "TEXT";
+}
+
+function sessionTableToTableDef(table: SessionTable): TableDef {
+  return {
+    id: `session:${table.name}`,
+    name: table.name,
+    columns: table.columns.map((col) => ({
+      id: createId("col"),
+      name: col.name,
+      type: normalizeColumnType(col.type),
+      nullable: true,
+      primary: Boolean(col.is_primary),
+      unique: false,
+      foreignKey: false,
+      refTable: "",
+      refColumn: "",
+    })),
+  };
 }
 function formatCellValue(value: unknown): string {
   if (value === null || value === undefined) return "NULL";
@@ -666,12 +699,14 @@ function DataPreviewTable({
   onUpdateRow,
   onRemoveRow,
   onAddRow,
+  readOnly,
 }: {
   table: TableDef;
   rows: RowDef[];
   onUpdateRow: (rowIndex: number, columnName: string, value: string) => void;
   onRemoveRow: (rowIndex: number) => void;
   onAddRow: () => void;
+  readOnly?: boolean;
 }) {
   return (
     <div className="space-y-3">
@@ -682,10 +717,12 @@ function DataPreviewTable({
             {rows.length} rows
           </Badge>
         </div>
-        <Button variant="outline" size="sm" onClick={onAddRow}>
-          <Plus className="h-3.5 w-3.5 mr-1.5" />
-          Add Row
-        </Button>
+        {!readOnly && (
+          <Button variant="outline" size="sm" onClick={onAddRow}>
+            <Plus className="h-3.5 w-3.5 mr-1.5" />
+            Add Row
+          </Button>
+        )}
       </div>
       <div className="border rounded-lg overflow-hidden">
         <Table>
@@ -721,19 +758,23 @@ function DataPreviewTable({
                         onChange={(e) =>
                           onUpdateRow(rowIndex, col.name, e.target.value)
                         }
+                        readOnly={readOnly}
+                        disabled={readOnly}
                         className="h-7 text-xs"
                       />
                     </TableCell>
                   ))}
                   <TableCell className="p-1.5">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                      onClick={() => onRemoveRow(rowIndex)}
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </Button>
+                    {!readOnly && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                        onClick={() => onRemoveRow(rowIndex)}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                   </TableCell>
                 </TableRow>
               );
@@ -840,13 +881,16 @@ export default function PlaygroundPage() {
   const [pushedTableIds, setPushedTableIds] = useState<Set<string>>(new Set());
   const [dirtyTableIds, setDirtyTableIds] = useState<Set<string>>(new Set());
   const [autofillTableId, setAutofillTableId] = useState<string>("all");
+  const [selectedDataTableId, setSelectedDataTableId] = useState<string>(
+    tables[0]?.id ?? "all",
+  );
 
-  const addLog = (type: LogEntry["type"], message: string) => {
+  const addLog = useCallback((type: LogEntry["type"], message: string) => {
     setExecutionLog((prev) => [
       { id: createId("log"), type, message, timestamp: new Date() },
       ...prev,
     ]);
-  };
+  }, []);
 
   const clearLog = () => {
     setExecutionLog([]);
@@ -899,6 +943,44 @@ export default function PlaygroundPage() {
     };
   }, [sessionId]);
 
+  useEffect(() => {
+    const saved = localStorage.getItem("seeql:sessionId");
+    if (!saved) return;
+    setSessionId(saved);
+    void api
+      .getSessionSchema(saved)
+      .then((response) => {
+        if (response.schema?.tables) {
+          setSessionTables(
+            response.schema.tables.map((t) => ({
+              name: t.name,
+              columns: t.columns.map((c) => ({
+                name: c.name,
+                type: c.type,
+                is_primary: c.is_primary,
+                is_foreign: c.is_foreign,
+                ref_table: c.ref_table,
+                ref_column: c.ref_column,
+              })),
+            })),
+          );
+        }
+        addLog("info", `Session restored: ${saved.slice(0, 8)}...`);
+      })
+      .catch(() => {
+        setSessionId(null);
+        localStorage.removeItem("seeql:sessionId");
+      });
+  }, [addLog]);
+
+  useEffect(() => {
+    if (sessionId) {
+      localStorage.setItem("seeql:sessionId", sessionId);
+    } else {
+      localStorage.removeItem("seeql:sessionId");
+    }
+  }, [sessionId]);
+
   const handleCreateSession = async () => {
     setIsSessionLoading(true);
     setError(null);
@@ -916,6 +998,8 @@ export default function PlaygroundPage() {
       setResult(null);
       setSessionTables([]);
       setPushedTableIds(new Set());
+      setDirtyTableIds(new Set());
+      setAutofillTableId("all");
       addLog("info", `Session started: ${created.session_id.slice(0, 8)}...`);
       addLog(
         "info",
@@ -942,6 +1026,8 @@ export default function PlaygroundPage() {
       setResult(null);
       setSessionTables([]);
       setPushedTableIds(new Set());
+      setDirtyTableIds(new Set());
+      setAutofillTableId("all");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to end session");
     } finally {
@@ -1157,13 +1243,25 @@ export default function PlaygroundPage() {
   };
 
   const handleGenerateData = async () => {
-    const targetTables =
+    const isSessionTarget = autofillTableId.startsWith("session:");
+    const builderTables =
       autofillTableId === "all"
         ? tables
         : tables.filter((t) => t.id === autofillTableId);
 
+    const sessionTarget = sessionTables.find(
+      (t) => `session:${t.name}` === autofillTableId,
+    );
+
+    const targetTables = isSessionTarget
+      ? sessionTarget
+        ? [sessionTableToTableDef(sessionTarget)]
+        : []
+      : builderTables;
+
+    if (targetTables.length === 0) return;
+
     const createSql = targetTables.map(buildCreateTableSql).join(";\n");
-    if (!createSql) return;
 
     setIsGenerating(true);
     setError(null);
@@ -1196,7 +1294,39 @@ export default function PlaygroundPage() {
           }
         }
 
-        setRowsByTable((prev) => ({ ...prev, ...newRowsByTable }));
+        if (isSessionTarget) {
+          const targetTable = targetTables[0];
+          if (!sessionId) {
+            setError("Start a session to auto-fill session tables.");
+            return;
+          }
+          const insertStatements = buildInsertSql(
+            targetTable,
+            newRowsByTable[targetTable.id] ?? [],
+          );
+          for (const insertSql of insertStatements) {
+            try {
+              await api.executePlayground(sessionId, insertSql);
+            } catch (err) {
+              const msg = sanitizeError(
+                err instanceof Error ? err.message : "Insert failed",
+              );
+              addLog(
+                "error",
+                `Insert into "${targetTable.name}" failed: ${msg}`,
+              );
+            }
+          }
+          if (insertStatements.length > 0) {
+            addLog(
+              "success",
+              `Inserted ${insertStatements.length} row(s) into "${targetTable.name}"`,
+            );
+          }
+          setRowsByTable((prev) => ({ ...prev, ...newRowsByTable }));
+        } else {
+          setRowsByTable((prev) => ({ ...prev, ...newRowsByTable }));
+        }
       }
     } catch (err) {
       setError(
@@ -1210,6 +1340,7 @@ export default function PlaygroundPage() {
   };
 
   const addRow = (tableId: string) => {
+    if (tableId.startsWith("session:")) return;
     const table = tables.find((t) => t.id === tableId);
     if (!table) return;
 
@@ -1230,6 +1361,7 @@ export default function PlaygroundPage() {
     columnName: string,
     value: string,
   ) => {
+    if (tableId.startsWith("session:")) return;
     setRowsByTable((prev) => {
       const rows = [...(prev[tableId] ?? [])];
       const row = { ...(rows[rowIndex] ?? {}) };
@@ -1240,6 +1372,7 @@ export default function PlaygroundPage() {
   };
 
   const removeRow = (tableId: string, rowIndex: number) => {
+    if (tableId.startsWith("session:")) return;
     setRowsByTable((prev) => {
       const rows = [...(prev[tableId] ?? [])];
       rows.splice(rowIndex, 1);
@@ -1671,65 +1804,106 @@ export default function PlaygroundPage() {
                       })}
                     </div>
 
-                    {/* Auto-fill bar */}
-                    <div className="flex items-center gap-2 pt-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 text-xs shrink-0"
-                        onClick={handleGenerateData}
-                        disabled={isGenerating || tables.length === 0}
-                      >
-                        {isGenerating ? (
-                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                        ) : (
-                          <Sparkles className="h-3 w-3 mr-1" />
-                        )}
-                        Auto-fill
-                      </Button>
-                      <Select
-                        value={autofillTableId}
-                        onValueChange={setAutofillTableId}
-                        disabled={isGenerating || tables.length === 0}
-                      >
-                        <SelectTrigger className="h-7 text-xs flex-1 min-w-0">
-                          <SelectValue placeholder="All tables" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All tables</SelectItem>
-                          {tables.map((t) => (
-                            <SelectItem key={t.id} value={t.id}>
-                              {t.name || "(unnamed)"}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <Label
-                          htmlFor="rows-count"
-                          className="text-xs text-muted-foreground"
-                        >
-                          ×
-                        </Label>
-                        <Input
-                          id="rows-count"
-                          type="number"
-                          value={rowsPerTable}
-                          onChange={(e) =>
-                            setRowsPerTable(
-                              Math.max(
-                                1,
-                                Math.min(
-                                  20,
-                                  Number.parseInt(e.target.value, 10) || 1,
-                                ),
-                              ),
-                            )
+                    {/* Auto-fill */}
+                    <div className="rounded-lg border border-border/50 bg-muted/20 p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="h-4 w-4 text-amber-500" />
+                          <span className="text-sm font-medium">
+                            Auto-fill rows
+                          </span>
+                        </div>
+                        <span className="text-[11px] text-muted-foreground">
+                          Works for draft and session tables
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-[1fr_auto] gap-2">
+                        <Select
+                          value={autofillTableId}
+                          onValueChange={setAutofillTableId}
+                          disabled={
+                            isGenerating ||
+                            tables.length + sessionTables.length === 0
                           }
-                          className="w-12 h-7 text-xs text-center"
-                          min={1}
-                          max={20}
-                        />
+                        >
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue placeholder="Choose table" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {tables.length > 0 && (
+                              <>
+                                <SelectItem value="all">
+                                  All draft tables
+                                </SelectItem>
+                                {tables.map((t) => (
+                                  <SelectItem key={t.id} value={t.id}>
+                                    {t.name || "(unnamed draft)"}
+                                  </SelectItem>
+                                ))}
+                              </>
+                            )}
+                            {sessionTables.length > 0 && (
+                              <>
+                                {sessionTables.map((t) => (
+                                  <SelectItem
+                                    key={t.name}
+                                    value={`session:${t.name}`}
+                                  >
+                                    {t.name} (session)
+                                  </SelectItem>
+                                ))}
+                              </>
+                            )}
+                          </SelectContent>
+                        </Select>
+                        <div className="flex items-center gap-2">
+                          <Label
+                            htmlFor="rows-count"
+                            className="text-xs text-muted-foreground"
+                          >
+                            Rows
+                          </Label>
+                          <Input
+                            id="rows-count"
+                            type="number"
+                            value={rowsPerTable}
+                            onChange={(e) =>
+                              setRowsPerTable(
+                                Math.max(
+                                  1,
+                                  Math.min(
+                                    20,
+                                    Number.parseInt(e.target.value, 10) || 1,
+                                  ),
+                                ),
+                              )
+                            }
+                            className="w-16 h-8 text-xs text-center"
+                            min={1}
+                            max={20}
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <p className="text-[11px] text-muted-foreground">
+                          Generated rows show below. Session tables insert
+                          immediately.
+                        </p>
+                        <Button
+                          size="sm"
+                          onClick={handleGenerateData}
+                          disabled={
+                            isGenerating ||
+                            (tables.length === 0 && sessionTables.length === 0)
+                          }
+                        >
+                          {isGenerating ? (
+                            <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                          ) : (
+                            <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+                          )}
+                          Generate rows
+                        </Button>
                       </div>
                     </div>
 
@@ -1807,51 +1981,80 @@ export default function PlaygroundPage() {
                   </div>
                 )}
 
-                {/* Data Previews */}
-                {tables.some((t) => (rowsByTable[t.id] ?? []).length > 0) && (
-                  <div className="space-y-3">
-                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground/60 font-medium px-1">
-                      Data
-                    </p>
-                    {tables.map((table) => {
-                      const rows = rowsByTable[table.id] ?? [];
-                      if (rows.length === 0) return null;
-                      return (
-                        <DataPreviewTable
-                          key={table.id}
-                          table={table}
-                          rows={rows}
-                          onUpdateRow={(rowIndex, colName, value) =>
-                            updateRowValue(table.id, rowIndex, colName, value)
-                          }
-                          onRemoveRow={(rowIndex) =>
-                            removeRow(table.id, rowIndex)
-                          }
-                          onAddRow={() => addRow(table.id)}
-                        />
-                      );
-                    })}
-                  </div>
-                )}
+                {/* Data Preview */}
+                {(() => {
+                  const isSession = selectedDataTableId.startsWith("session:");
+                  const selectedSession = sessionTables.find(
+                    (t) => `session:${t.name}` === selectedDataTableId,
+                  );
+                  const selectedDraft = tables.find(
+                    (t) => t.id === selectedDataTableId,
+                  );
+                  const selectedTable = isSession
+                    ? selectedSession
+                      ? sessionTableToTableDef(selectedSession)
+                      : null
+                    : (selectedDraft ?? tables[0] ?? null);
 
-                {/* Generating skeleton */}
-                {isGenerating && (
-                  <div className="space-y-3">
-                    {(autofillTableId === "all"
-                      ? tables
-                      : tables.filter((t) => t.id === autofillTableId)
-                    ).map((table) =>
-                      (rowsByTable[table.id] ?? []).length === 0 ? (
-                        <div
-                          key={table.id}
-                          className="rounded-md border border-border/50 overflow-hidden"
+                  const dataTargetId = selectedTable?.id ?? null;
+                  const rows = dataTargetId
+                    ? (rowsByTable[dataTargetId] ?? [])
+                    : [];
+
+                  const showSkeleton =
+                    isGenerating && selectedTable && rows.length === 0;
+
+                  return (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[11px] uppercase tracking-wider text-muted-foreground/60 font-medium px-1">
+                          Data
+                        </p>
+                        <Select
+                          value={selectedDataTableId}
+                          onValueChange={setSelectedDataTableId}
+                          disabled={
+                            isGenerating ||
+                            tables.length + sessionTables.length === 0
+                          }
                         >
+                          <SelectTrigger className="h-7 text-xs w-44">
+                            <SelectValue placeholder="Pick table" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {tables.length > 0 && (
+                              <>
+                                {tables.map((t) => (
+                                  <SelectItem key={t.id} value={t.id}>
+                                    {t.name || "(unnamed draft)"}
+                                  </SelectItem>
+                                ))}
+                              </>
+                            )}
+                            {sessionTables.length > 0 && (
+                              <>
+                                {sessionTables.map((t) => (
+                                  <SelectItem
+                                    key={t.name}
+                                    value={`session:${t.name}`}
+                                  >
+                                    {t.name} (session)
+                                  </SelectItem>
+                                ))}
+                              </>
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {showSkeleton && (
+                        <div className="rounded-md border border-border/50 overflow-hidden">
                           <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/30 border-b border-border/30">
                             <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
                             <span className="text-xs text-muted-foreground">
                               Generating{" "}
                               <span className="font-medium text-foreground">
-                                {table.name || "table"}
+                                {selectedTable?.name || "table"}
                               </span>
                               …
                             </span>
@@ -1868,10 +2071,30 @@ export default function PlaygroundPage() {
                             ))}
                           </div>
                         </div>
-                      ) : null,
-                    )}
-                  </div>
-                )}
+                      )}
+
+                      {selectedTable && rows.length > 0 && (
+                        <DataPreviewTable
+                          table={selectedTable}
+                          rows={rows}
+                          onUpdateRow={(rowIndex, colName, value) =>
+                            updateRowValue(
+                              selectedTable.id,
+                              rowIndex,
+                              colName,
+                              value,
+                            )
+                          }
+                          onRemoveRow={(rowIndex) =>
+                            removeRow(selectedTable.id, rowIndex)
+                          }
+                          onAddRow={() => addRow(selectedTable.id)}
+                          readOnly={isSession}
+                        />
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           </ResizablePanel>
