@@ -1,12 +1,13 @@
 "use client";
 
 import {
-  BookOpen,
-  ChevronDown,
-  ChevronRight,
-  Loader2,
-  Play,
-  X,
+	BookOpen,
+	ChevronDown,
+	ChevronRight,
+	Github,
+	Loader2,
+	Play,
+	X,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -139,21 +140,35 @@ export default function QuickModePage() {
             </Badge>
           </div>
           <div className="flex items-center gap-4">
-            <ThemeSwitcher />
-            <nav className="flex items-center gap-1">
-              <Button variant="ghost" size="sm" asChild>
-                <Link href="/">Playground</Link>
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className={cn(pathname === "/quick" && "text-foreground")}
-                asChild
-              >
-                <Link href="/quick">Quick Mode</Link>
-              </Button>
-            </nav>
-          </div>
+				<ThemeSwitcher />
+				<nav className="flex items-center gap-1">
+					<Button variant="ghost" size="sm" asChild>
+						<Link href="/">Playground</Link>
+					</Button>
+					<Button
+						variant="ghost"
+						size="sm"
+						className={cn(pathname === "/quick" && "text-foreground")}
+						asChild
+					>
+						<Link href="/quick">Quick Mode</Link>
+					</Button>
+				</nav>
+				<Button
+					variant="ghost"
+					size="icon"
+					asChild
+					className="h-8 w-8"
+				>
+					<Link
+						href="https://github.com/Sahil-796"
+						target="_blank"
+						rel="noopener noreferrer"
+					>
+						<Github className="h-4 w-4" />
+					</Link>
+				</Button>
+			</div>
         </div>
       </header>
 
@@ -427,36 +442,55 @@ export default function QuickModePage() {
                 </div>
               </div>
 
-              {/* Quick reference panel */}
-              {isRefOpen && (
-                <div className="border-b bg-muted/10 px-5 py-3 grid grid-cols-3 gap-4 text-xs text-muted-foreground">
-                  <div>
-                    <div className="font-medium text-foreground mb-1.5">
-                      Supported
-                    </div>
-                    <div>SELECT with JOINs</div>
-                    <div>Multiple tables</div>
-                    <div>Column aliases</div>
-                  </div>
-                  <div>
-                    <div className="font-medium text-foreground mb-1.5">
-                      Auto-detected
-                    </div>
-                    <div>Primary keys (id)</div>
-                    <div>Foreign keys (*_id)</div>
-                    <div>Relationships</div>
-                  </div>
-                  <div>
-                    <div className="font-medium text-foreground mb-1.5">
-                      Example
-                    </div>
-                    <pre className="text-blue-600 dark:text-blue-400 whitespace-pre-wrap leading-relaxed">{`SELECT u.name, p.title
+{/* Quick reference panel */}
+				{isRefOpen && (
+					<div className="border-b bg-muted/10 px-5 py-4 space-y-4 text-xs">
+						<div className="grid grid-cols-3 gap-4 text-muted-foreground">
+							<div>
+								<div className="font-medium text-foreground mb-1.5">
+									Supported
+								</div>
+								<div>SELECT with JOINs</div>
+								<div>Multiple tables</div>
+								<div>Column aliases</div>
+							</div>
+							<div>
+								<div className="font-medium text-foreground mb-1.5">
+									Auto-detected
+								</div>
+								<div>Primary keys (id)</div>
+								<div>Foreign keys (*_id)</div>
+								<div>Relationships</div>
+							</div>
+							<div>
+								<div className="font-medium text-foreground mb-1.5">
+									Example
+								</div>
+								<pre className="text-blue-600 dark:text-blue-400 whitespace-pre-wrap leading-relaxed">{`SELECT u.name, p.title
 FROM users u
 JOIN posts p
 ON u.id = p.user_id`}</pre>
-                  </div>
-                </div>
-              )}
+							</div>
+						</div>
+						<div className="border-t pt-3">
+							<div className="flex items-center gap-1.5 mb-2">
+								<span className="font-medium text-foreground">Limitations</span>
+								<span className="text-muted-foreground">— Quick Mode uses SQLite. Some features are not supported:</span>
+							</div>
+							<div className="grid grid-cols-2 gap-x-4 gap-y-1 text-muted-foreground">
+								<div>• No PostgreSQL functions: <code className="text-amber-600">array_agg()</code>, <code className="text-amber-600">json_agg()</code>, <code className="text-amber-600">to_char()</code></div>
+								<div>• No MySQL functions: <code className="text-amber-600">GROUP_CONCAT()</code>, <code className="text-amber-600">FIND_IN_SET()</code></div>
+								<div>• No CTEs (WITH clauses) or recursive queries</div>
+								<div>• No FULL OUTER JOIN</div>
+								<div>• No window functions with custom frames</div>
+								<div>• No subqueries in FROM clause</div>
+							</div>
+							<div className="mt-2 text-muted-foreground/70 italic">
+								Need full PostgreSQL/MySQL support? Use Playground mode with CREATE TABLE, INSERT, etc.
+							</div>
+						</div>
+					</div>
+				)}
 
               {/* Textarea */}
               <div className="flex flex-1 min-h-0 items-start gap-2 p-4">

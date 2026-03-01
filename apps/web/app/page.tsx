@@ -1,22 +1,23 @@
 "use client";
 
 import {
-  Check,
-  ChevronDown,
-  Code,
-  Copy,
-  Database,
-  GripVertical,
-  Link2,
-  Loader2,
-  Play,
-  Plus,
-  Shield,
-  Sparkles,
-  Table as TableIcon,
-  Trash2,
-  Upload,
-  X,
+	Check,
+	ChevronDown,
+	Code,
+	Copy,
+	Database,
+	Github,
+	GripVertical,
+	Link2,
+	Loader2,
+	Play,
+	Plus,
+	Shield,
+	Sparkles,
+	Table as TableIcon,
+	Trash2,
+	Upload,
+	X,
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -1591,21 +1592,35 @@ export default function PlaygroundPage() {
                 </>
               )}
             </div>
-            <ThemeSwitcher />
-            <nav className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-foreground"
-                asChild
-              >
-                <Link href="/">Playground</Link>
-              </Button>
-              <Button variant="ghost" size="sm" asChild>
-                <Link href="/quick">Quick Mode</Link>
-              </Button>
-            </nav>
-          </div>
+					<ThemeSwitcher />
+					<nav className="flex items-center gap-1">
+						<Button
+							variant="ghost"
+							size="sm"
+							className="text-foreground"
+							asChild
+						>
+							<Link href="/">Playground</Link>
+						</Button>
+						<Button variant="ghost" size="sm" asChild>
+							<Link href="/quick">Quick Mode</Link>
+						</Button>
+					</nav>
+					<Button
+						variant="ghost"
+						size="icon"
+						asChild
+						className="h-8 w-8"
+					>
+						<Link
+							href="https://github.com/Sahil-796"
+							target="_blank"
+							rel="noopener noreferrer"
+						>
+							<Github className="h-4 w-4" />
+						</Link>
+					</Button>
+				</div>
         </div>
       </header>
 
@@ -2140,24 +2155,48 @@ export default function PlaygroundPage() {
                   tables={editorTables}
                   autoFocus
                 />
-                {!sessionId ? (
-                  <p className="text-xs text-amber-600">
-                    Start a session to run queries.
-                  </p>
-                ) : !isQueryValid && validationErrors.length > 0 ? (
-                  <p className="text-xs text-red-600">{validationErrors[0]}</p>
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    Session active. Press{" "}
-                    <kbd className="px-1.5 py-0.5 rounded bg-muted border text-[10px]">
-                      Cmd+Enter
-                    </kbd>{" "}
-                    to run.
-                  </p>
-                )}
-              </div>
+{!sessionId ? (
+									<p className="text-xs text-amber-600">
+										Start a session to run queries.
+									</p>
+								) : !isQueryValid && validationErrors.length > 0 ? (
+									<p className="text-xs text-red-600">{validationErrors[0]}</p>
+								) : (
+									<p className="text-xs text-muted-foreground">
+										Session active. Press{" "}
+										<kbd className="px-1.5 py-0.5 rounded bg-muted border text-[10px]">
+											Cmd+Enter
+										</kbd>{" "}
+										to run.
+									</p>
+								)}
 
-              {/* Results Section */}
+								{/* Limitations Info */}
+								<details className="mt-2">
+									<summary className="text-xs text-muted-foreground/70 cursor-pointer hover:text-muted-foreground flex items-center gap-1">
+										<span className="text-amber-500">*</span>
+										Limitations apply
+									</summary>
+									<div className="mt-2 p-3 rounded-lg bg-muted/30 text-xs text-muted-foreground space-y-1">
+										<p className="font-medium text-foreground/80 mb-1.5">
+											This playground uses SQLite. Some features are not supported:
+										</p>
+										<div className="grid grid-cols-2 gap-x-4 gap-y-1">
+											<div>• No <code className="text-amber-600">array_agg()</code>, <code className="text-amber-600">json_agg()</code></div>
+											<div>• No <code className="text-amber-600">GROUP_CONCAT()</code></div>
+											<div>• No CTEs (WITH clauses)</div>
+											<div>• No FULL OUTER JOIN</div>
+											<div>• No window functions</div>
+											<div>• No subqueries in FROM</div>
+										</div>
+										<p className="mt-2 text-muted-foreground/70 italic">
+											See the README for complete list of limitations.
+										</p>
+</div>
+						</details>
+					</div>
+
+					{/* Results Section */}
               <div className="flex-1 p-6 overflow-auto">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-semibold">Results</h2>
